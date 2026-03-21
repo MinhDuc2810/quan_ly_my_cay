@@ -4,10 +4,10 @@ import MenuSection from "@/components/home/MenuSection";
 import SpaceSection from "@/components/home/SpaceSection";
 import Link from "next/link";
 
-export default function HomePage() {
+export default function CustomerHomePage() {
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
-      {/* Navbar Mỏng nhẹ */}
+      {/* Header handled by PublicHeader with auth state */}
       <PublicHeader />
 
       {/* Banner Section - Slider */}
@@ -20,13 +20,13 @@ export default function HomePage() {
         {/* Section Không Gian */}
         <SpaceSection />
 
-        {/* Khung Khuyến Mãi Ngang */}
+        {/* Khung Khuyến Mãi Ngang - Cùng nội dung với trang home */}
         <section id="khuyen-mai" className="py-20 bg-gray-50/50">
           <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
             <div className="text-center mb-16">
-              <h2 className="text-secondary font-bold tracking-wide uppercase">Không Thể Bỏ Lỡ</h2>
+              <h2 className="text-secondary font-bold tracking-wide uppercase">Dành Riêng Cho Bạn</h2>
               <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-text-main sm:text-4xl">
-                Khuyến mãi đang diễn ra
+                Ưu đãi và tin tức mới nhất
               </p>
             </div>
 
