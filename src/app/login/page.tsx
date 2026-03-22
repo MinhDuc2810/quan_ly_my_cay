@@ -75,7 +75,7 @@ export default function LoginPage() {
         } else if (role === "STAFF") {
           router.push("/pos");
         } else {
-          router.push("/customer");
+          router.push("/");
         }
       } else {
         setError(loginRes.message || "Đăng nhập thất bại");

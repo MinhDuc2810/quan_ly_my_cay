@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import authService from "@/services/auth.service";
 import tableService, { Table } from "@/services/table.service";
 import categoryService, { Category } from "@/services/category.service";
@@ -11,6 +12,7 @@ import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { getImageUrl } from "@/lib/utils";
 
 export default function StaffPOS() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -34,13 +36,30 @@ export default function StaffPOS() {
     const initData = async () => {
       setLoading(true);
       try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          router.push("/login");
+          return;
+        }
+
         const [userRes, tableRes, categoryRes] = await Promise.all([
           authService.getMe(),
           tableService.getTables(),
           categoryService.getCategories({ per_page: 50 })
         ]);
 
-        if (userRes.success) setUser(userRes.data.user);
+        if (userRes.success) {
+          const role = userRes.data.user.role;
+          if (role !== "STAFF" && role !== "ADMIN") {
+            router.push("/");
+            return;
+          }
+          setUser(userRes.data.user);
+        } else {
+          router.push("/login");
+          return;
+        }
+
         if (tableRes.success) setTables(tableRes.data);
         if (categoryRes.success) {
           setCategories(categoryRes.data);
@@ -55,7 +74,7 @@ export default function StaffPOS() {
       }
     };
     initData();
-  }, []);
+  }, [router]);
 
   // Fetch Products when Category changes
   useEffect(() => {

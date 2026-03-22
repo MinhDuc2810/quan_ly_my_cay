@@ -9,7 +9,6 @@ import ConfirmDialog from "@/components/common/ConfirmDialog";
 const sidebarMenu = [
   {
     group: "Chính", items: [
-      { label: "Trang chủ (Khách)", href: "/" },
       { label: "Dashboard", href: "/admin" },
       { label: "Hồ sơ cá nhân", href: "/admin/profile" },
     ]
@@ -139,14 +138,7 @@ export function Topbar() {
         <button className="text-gray-400 hover:text-primary transition-colors focus:outline-none">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
         </button>
-        <div className="relative group hidden md:block">
-          <input
-            type="text"
-            placeholder="Tìm kiếm..."
-            className="w-80 bg-gray-50/50 border border-gray-100 text-sm font-medium px-4 py-2.5 rounded-full outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all pl-10"
-          />
-          <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        </div>
+
       </div>
 
       <div className="flex items-center gap-5">
