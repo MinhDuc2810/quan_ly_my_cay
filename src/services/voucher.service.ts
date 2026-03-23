@@ -3,23 +3,27 @@ import api from "@/lib/axios";
 export interface Voucher {
   id: number;
   code: string;
-  discount_type: 'AMOUNT' | 'PERCENTAGE';
+  discount_type: 'FIXED' | 'PERCENTAGE';
   discount_value: number;
   min_order_amount: number;
-  max_discount_amount: number | null;
+  max_discount: number | null;
   start_date: string;
-  end_date: string | null;
+  expired_at: string;
   usage_limit: number | null;
   used_count: number;
+  remaining_uses: number;
   status: 1 | 0; // 1: Active, 0: Inactive
+  is_active: boolean;
   created_at: string;
 }
 
 export interface VoucherListParams {
   page?: number;
   per_page?: number;
-  code?: string;
   status?: number;
+  discount_type?: string;
+  search?: string;
+  active_only?: number;
 }
 
 export interface VoucherResponse {
@@ -30,6 +34,8 @@ export interface VoucherResponse {
     per_page: number;
     current_page: number;
     total_pages: number;
+    from: number;
+    to: number;
   };
 }
 

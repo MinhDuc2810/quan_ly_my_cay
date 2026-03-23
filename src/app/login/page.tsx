@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import authService from "@/services/auth.service";
+import emailjs from "@emailjs/browser";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,18 +32,53 @@ export default function LoginPage() {
     setForgotMessage(null);
 
     try {
+      console.log("[ForgotPassword] Gửi số điện thoại:", forgotEmail);
       const res = await authService.forgotPassword(forgotEmail);
+      console.log("[ForgotPassword] Response từ API:", res);
+
       if (res.success) {
-        setForgotMessage({ type: "success", text: res.message || "Liên kết khôi phục đã được gửi vào Email của bạn!" });
+        // Extract new password data from nested response
+        const userData = res.data?.data;
+        console.log("[ForgotPassword] userData:", userData);
+        const toEmail = userData?.email;
+        const toName = userData?.name;
+        const newPassword = userData?.new_password;
+        console.log("[ForgotPassword] gửi email tới:", toEmail, "| mật khẩu mới:", newPassword);
+
+        // Send email via EmailJS
+        if (toEmail && newPassword) {
+          try {
+            const emailRes = await emailjs.send(
+              process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID!,
+              process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID!,
+              {
+                to_email: toEmail,
+                to_name: toName || "Khách hàng",
+                new_password: newPassword,
+              },
+              process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY!
+            );
+            console.log("[EmailJS] Gửi email thành công:", emailRes);
+          } catch (emailErr) {
+            console.error("[EmailJS] Lỗi gửi email:", emailErr);
+          }
+        } else {
+          console.warn("[ForgotPassword] Không có email hoặc mật khẩu mới trong response, bỏ qua EmailJS");
+        }
+
+        setForgotMessage({ type: "success", text: "Mật khẩu mới đã được gửi vào email của bạn!" });
         setTimeout(() => {
           setIsForgotModalOpen(false);
           setForgotEmail("");
           setForgotMessage(null);
         }, 3000);
       } else {
+        console.warn("[ForgotPassword] API trả về success=false:", res.message);
         setForgotMessage({ type: "error", text: res.message || "Không thể gửi email khôi phục." });
       }
     } catch (err: any) {
+      console.error("[ForgotPassword] Lỗi gọi API:", err);
+      console.error("[ForgotPassword] Chi tiết lỗi:", err.response?.data);
       setForgotMessage({ type: "error", text: err.response?.data?.message || "Lỗi kết nối Server!" });
     } finally {
       setForgotLoading(false);
@@ -145,10 +181,6 @@ export default function LoginPage() {
             </div>
 
             <div className="flex items-center justify-between mt-4">
-              <div className="flex items-center">
-                <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 text-primary border-gray-200 rounded-lg cursor-pointer accent-primary" />
-                <label htmlFor="remember-me" className="ml-2 block text-xs font-black text-gray-400 uppercase tracking-widest cursor-pointer">Ghi nhớ tôi</label>
-              </div>
               <button 
                 type="button"
                 onClick={() => setIsForgotModalOpen(true)}

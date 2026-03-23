@@ -19,6 +19,7 @@ const sidebarMenu = [
       { label: "Danh mục", href: "/admin/categories" },
       { label: "Khách hàng", href: "/admin/customers" },
       { label: "Tài khoản", href: "/admin/accounts" },
+      { label: "Thống kê sản phẩm", href: "/admin/statistics" },
     ]
   },
   {
@@ -59,7 +60,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* User Info (as in image) */}
+      {/* User Info (as in image)
       <div className="px-6 py-4 flex items-center gap-3 border-b border-gray-50 mb-4">
         <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-orange-400 p-0.5 shadow-md">
           <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
@@ -72,7 +73,7 @@ export function Sidebar() {
             <span className="w-2 h-2 rounded-full bg-green-500"></span> Online
           </p>
         </div>
-      </div>
+      </div> */}
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-4 custom-scrollbar pb-10">

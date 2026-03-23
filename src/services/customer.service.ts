@@ -2,19 +2,17 @@ import api from "@/lib/axios";
 
 export interface Customer {
   id: number;
-  user_id: number;
   name: string;
   phone: string;
   email: string;
   points: number;
   created_at: string;
-  updated_at: string;
-  user: {
-    id: number;
-    username: string;
-    role: string;
-    status: number;
-  };
+}
+
+export interface CustomerSearchResponse {
+  success: boolean;
+  message: string;
+  data: Customer[];
 }
 
 export interface CustomerListParams {
@@ -56,6 +54,16 @@ const customerService = {
 
   deleteCustomer: async (id: number) => {
     const response = await api.delete(`/customers/${id}`);
+    return response.data;
+  },
+
+  getCustomerById: async (id: number): Promise<{ success: boolean; data: Customer }> => {
+    const response = await api.get<{ success: boolean; data: Customer }>(`/customers/${id}`);
+    return response.data;
+  },
+
+  searchByPhone: async (phone: string): Promise<CustomerSearchResponse> => {
+    const response = await api.get<CustomerSearchResponse>("/customers/search", { params: { phone } });
     return response.data;
   },
 };

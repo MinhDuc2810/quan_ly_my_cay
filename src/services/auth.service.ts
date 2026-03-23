@@ -24,6 +24,23 @@ export interface UserResponse {
   };
 }
 
+export interface ForgotPasswordData {
+  email: string;
+  name: string;
+  new_password: string;
+  phone: string;
+}
+
+export interface ForgotPasswordResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    success: boolean;
+    message: string;
+    data?: ForgotPasswordData;
+  };
+}
+
 const authService = {
   login: async (credentials: any): Promise<AuthResponse> => {
     const response = await api.post<AuthResponse>("/auth/login", credentials);
@@ -51,8 +68,8 @@ const authService = {
     window.location.href = "/";
   },
 
-  forgotPassword: async (email: string): Promise<{ success: boolean; message: string }> => {
-    const response = await api.post<{ success: boolean; message: string }>("/auth/forgot-password", { email });
+  forgotPassword: async (phone: string): Promise<ForgotPasswordResponse> => {
+    const response = await api.post<ForgotPasswordResponse>("/auth/forgot-password", { phone });
     return response.data;
   },
 

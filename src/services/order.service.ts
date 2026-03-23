@@ -57,6 +57,21 @@ export interface OrderResponse {
   };
 }
 
+export interface CreateOrderResponse {
+  success: boolean;
+  message: string;
+  data: {
+    id: number;
+    customer_id: number | null;
+    table_id: number;
+    status: string;
+    total_amount: number;
+    discount_amount: number;
+    final_amount: number;
+    created_at: string;
+  };
+}
+
 const orderService = {
   getOrders: async (params?: OrderListParams): Promise<OrderResponse> => {
     const response = await api.get<OrderResponse>("/orders", { params });
@@ -75,6 +90,45 @@ const orderService = {
 
   deleteOrder: async (id: number): Promise<any> => {
     const response = await api.delete(`/orders/${id}`);
+    return response.data;
+  },
+
+  createOrder: async (data: {
+    table_id: number;
+    customer_id?: number | null;
+    items: { product_id: number; quantity: number }[];
+  }): Promise<CreateOrderResponse> => {
+    const response = await api.post<CreateOrderResponse>("/orders", data);
+    return response.data;
+  },
+
+  getActiveOrderByTable: async (tableId: number): Promise<{ success: boolean; data: Order | null }> => {
+    const response = await api.get<{ success: boolean; data: Order | null }>(`/orders/table/${tableId}/active`);
+    return response.data;
+  },
+
+  updateOrderItems: async (id: number, items: { product_id: number; quantity: number }[]): Promise<any> => {
+    const response = await api.put(`/orders/${id}/items`, { items });
+    return response.data;
+  },
+
+  applyVoucher: async (id: number, voucherCode: string): Promise<any> => {
+    const response = await api.post(`/orders/${id}/voucher`, { voucher_code: voucherCode });
+    return response.data;
+  },
+
+  removeVoucher: async (id: number): Promise<any> => {
+    const response = await api.delete(`/orders/${id}/voucher`);
+    return response.data;
+  },
+
+  cancelOrder: async (id: number, reason: string = "Khách hàng yêu cầu hủy"): Promise<any> => {
+    const response = await api.post(`/orders/${id}/cancel`, { reason });
+    return response.data;
+  },
+
+  payOrder: async (id: number, data: { payment_method: string; customer_id?: number | null }): Promise<any> => {
+    const response = await api.post(`/orders/${id}/payment`, data);
     return response.data;
   },
 };
