@@ -15,6 +15,8 @@ import {
   FileText,
   Download
 } from "lucide-react";
+import { PDFViewer, BlobProvider } from "@react-pdf/renderer";
+import InvoicePDF from "@/components/admin/InvoicePDF";
 import orderService, { Order } from "@/services/order.service";
 
 export default function AdminInvoicesPage() {
@@ -27,17 +29,24 @@ export default function AdminInvoicesPage() {
     current_page: 1,
   });
 
+  // PDF Preview State
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isFetchingDetail, setIsFetchingDetail] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const fetchInvoices = async (page = 1) => {
     setLoading(true);
     try {
-      // In a real application, you might use a dedicated invoice service. 
-      // Here we fetch orders and optionally filter by paid status to act as invoices.
       const res = await orderService.getOrders({ 
         page, 
         order_code: searchQuery,
       });
       if (res.success) {
-        // We can do client side filtering or styling based on the actual use-case.
         let finalData = res.data; 
         if (paymentMethodFilter !== 'ALL') {
              finalData = finalData.filter(inv => inv.payment_method === paymentMethodFilter);
@@ -53,6 +62,23 @@ export default function AdminInvoicesPage() {
       console.error("Failed to fetch invoices", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePreviewInvoice = async (id: number) => {
+    setIsFetchingDetail(true);
+    try {
+      const res = await orderService.getOrderById(id);
+      if (res.success) {
+        console.log("Dữ liệu hóa đơn chi tiết tải về:", res.data);
+        setSelectedOrder(res.data);
+        setIsPreviewOpen(true);
+      }
+    } catch (error) {
+      console.error("Failed to fetch order detail for PDF", error);
+      alert("Không thể tải thông tin hóa đơn chi tiết!");
+    } finally {
+      setIsFetchingDetail(false);
     }
   };
 
@@ -156,7 +182,6 @@ export default function AdminInvoicesPage() {
               <tr className="bg-gray-50/50 border-b border-gray-100">
                 <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[2px]">Mã HĐ</th>
                 <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[2px]">Khách hàng</th>
-                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[2px]">Thanh toán</th>
                 <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[2px]">Hình thức</th>
                 <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[2px]">Tổng cộng</th>
                 <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[2px]">Ngày lập</th>
@@ -178,7 +203,7 @@ export default function AdminInvoicesPage() {
                         <FileText size={16} />
                       </div>
                       <span className="font-mono font-black text-xs text-gray-800">
-                        {invoice.order_code}
+                         #{invoice.id}
                       </span>
                     </div>
                   </td>
@@ -187,9 +212,6 @@ export default function AdminInvoicesPage() {
                       <p className="text-sm font-black text-gray-800">{invoice.customer?.name || 'Khách vãng lai'}</p>
                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Bàn {invoice.table?.table_number || 'N/A'}</p>
                     </div>
-                  </td>
-                  <td className="px-8 py-6">
-                    {getPaymentStatus(invoice.payment_status)}
                   </td>
                   <td className="px-8 py-6">
                     {getPaymentMethodIcon(invoice.payment_method)}
@@ -210,8 +232,16 @@ export default function AdminInvoicesPage() {
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center justify-end gap-2">
-                       <button className="p-2 text-gray-400 hover:text-primary hover:bg-red-50 rounded-lg transition-all shadow-sm border border-transparent hover:border-red-100" title="Xem chi tiết">
-                         <Eye size={18} />
+                       <button 
+                         onClick={() => handlePreviewInvoice(invoice.id)}
+                         disabled={isFetchingDetail}
+                         className="p-2 text-gray-400 hover:text-primary hover:bg-red-50 rounded-lg transition-all shadow-sm border border-transparent hover:border-red-100 disabled:opacity-30" title="Xem chi tiết"
+                        >
+                         {isFetchingDetail && selectedOrder?.id === invoice.id ? (
+                           <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                         ) : (
+                           <Eye size={18} />
+                         )}
                        </button>
                        <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all shadow-sm border border-transparent hover:border-blue-100" title="In Hóa Đơn">
                          <Printer size={18} />
@@ -257,6 +287,61 @@ export default function AdminInvoicesPage() {
            </div>
         </div>
       </div>
+
+      {/* PDF Preview Modal */}
+      {isPreviewOpen && selectedOrder && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 animate-in fade-in zoom-in duration-300">
+          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={() => setIsPreviewOpen(false)} />
+          <div className="relative bg-white w-full h-full max-w-5xl rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100">
+              <div>
+                <h3 className="text-xl font-black text-gray-800 tracking-tight flex items-center gap-3">
+                  <FileText className="text-primary" />
+                  Xem trước Hóa đơn #{selectedOrder.id}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setIsPreviewOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            <div className="flex-1 bg-gray-100 p-4 min-h-[500px]">
+              {isMounted && selectedOrder && (
+                <PDFViewer 
+                  key={selectedOrder.id}
+                  width="100%" 
+                  height="100%" 
+                  className="rounded-2xl border-none shadow-inner min-h-[500px]"
+                >
+                  <InvoicePDF order={selectedOrder} />
+                </PDFViewer>
+              )}
+            </div>
+            <div className="px-8 py-6 border-t border-gray-100 flex justify-end gap-4">
+               <button 
+                onClick={() => setIsPreviewOpen(false)}
+                className="px-8 py-3 bg-gray-100 text-gray-500 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-gray-200 transition-all"
+               >
+                 Đóng
+               </button>
+               <BlobProvider document={<InvoicePDF order={selectedOrder} />}>
+                 {({ blob, url, loading }) => (
+                   <a 
+                     href={url || '#'} 
+                     download={`hoadon-${selectedOrder.id}.pdf`}
+                     className={`flex items-center gap-2 px-8 py-3 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:shadow-xl hover:-translate-y-1 transition-all ${loading ? 'opacity-50 pointer-events-none' : ''}`}
+                   >
+                     <Download size={16} />
+                     Tải xuống PDF
+                   </a>
+                 )}
+               </BlobProvider>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

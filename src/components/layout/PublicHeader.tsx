@@ -87,22 +87,6 @@ export default function PublicHeader() {
                   <svg className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-text-muted group-hover:text-primary transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"></path></svg>
                 </Link>
               </div>
-
-              <Link href="/tuyen-dung" className="text-text-main hover:text-primary px-2 py-2 text-[13px] xl:text-[15px] font-bold uppercase transition-colors whitespace-nowrap">
-                Tuyển dụng
-              </Link>
-
-              <Link href="/nhuong-quyen" className="text-text-main hover:text-primary px-2 py-2 text-[13px] xl:text-[15px] font-bold uppercase transition-colors whitespace-nowrap">
-                Nhượng quyền
-              </Link>
-
-              <div className="group relative flex items-center cursor-pointer">
-                <Link href="/tin-vui" className="text-text-main hover:text-primary px-2 py-2 text-[13px] xl:text-[15px] font-bold uppercase transition-colors flex items-center gap-1 whitespace-nowrap">
-                  Tin vui
-                  <svg className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-text-muted group-hover:text-primary transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"></path></svg>
-                </Link>
-              </div>
-
               <Link href="/lien-he" className="text-text-main hover:text-primary px-2 py-2 text-[13px] xl:text-[15px] font-bold uppercase transition-colors whitespace-nowrap">
                 Liên hệ
               </Link>

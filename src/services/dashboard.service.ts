@@ -74,6 +74,28 @@ export interface ProductStats {
   };
 }
 
+export interface CustomerStats {
+  success: boolean;
+  message: string;
+  data: {
+    period: string;
+    date_range: {
+      from: string;
+      to: string;
+    };
+    new_customers: number;
+    returning_customers: number;
+    top_customers: {
+      id: number;
+      name: string;
+      phone: string;
+      points: number;
+      order_count: number;
+      total_spent: string | null;
+    }[];
+  };
+}
+
 const dashboardService = {
   getOverview: async (period: string = "month"): Promise<DashboardOverview> => {
     const response = await api.get<DashboardOverview>("/dashboard/overview", {
@@ -84,6 +106,13 @@ const dashboardService = {
 
   getProductStats: async (period: string = "month"): Promise<ProductStats> => {
     const response = await api.get<ProductStats>("/dashboard/product-stats", {
+      params: { period },
+    });
+    return response.data;
+  },
+
+  getCustomerStats: async (period: string = "month"): Promise<CustomerStats> => {
+    const response = await api.get<CustomerStats>("/dashboard/customer-stats", {
       params: { period },
     });
     return response.data;

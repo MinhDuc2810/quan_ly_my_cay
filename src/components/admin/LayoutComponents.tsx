@@ -10,6 +10,7 @@ const sidebarMenu = [
   {
     group: "Chính", items: [
       { label: "Dashboard", href: "/admin" },
+      { label: "Thống kê sản phẩm", href: "/admin/statistics" },
       { label: "Hồ sơ cá nhân", href: "/admin/profile" },
     ]
   },
@@ -19,7 +20,6 @@ const sidebarMenu = [
       { label: "Danh mục", href: "/admin/categories" },
       { label: "Khách hàng", href: "/admin/customers" },
       { label: "Tài khoản", href: "/admin/accounts" },
-      { label: "Thống kê sản phẩm", href: "/admin/statistics" },
     ]
   },
   {
@@ -31,7 +31,7 @@ const sidebarMenu = [
   },
   {
     group: "Ưu đãi", items: [
-      { label: "Tích điểm", href: "/admin/loyalty" },
+      // { label: "Tích điểm", href: "/admin/loyalty" },
       { label: "Voucher", href: "/admin/vouchers" },
     ]
   },
@@ -59,7 +59,6 @@ export function Sidebar() {
           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Administrator</p>
         </div>
       </div>
-
       {/* User Info (as in image)
       <div className="px-6 py-4 flex items-center gap-3 border-b border-gray-50 mb-4">
         <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-orange-400 p-0.5 shadow-md">
