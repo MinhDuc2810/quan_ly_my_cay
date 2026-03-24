@@ -32,6 +32,11 @@ const categoryService = {
     return response.data;
   },
 
+  getAllCategories: async (): Promise<CategoryResponse> => {
+    const response = await api.get<CategoryResponse>("/categories/all");
+    return response.data;
+  },
+
   createCategory: async (data: any) => {
     const response = await api.post("/categories", data);
     return response.data;

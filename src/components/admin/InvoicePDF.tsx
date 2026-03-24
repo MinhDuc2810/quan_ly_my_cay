@@ -8,16 +8,16 @@ Font.register({
   family: 'Roboto',
   fonts: [
     {
-      src: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf',
+      src: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf', // Regular
+      fontWeight: 400,
     },
     {
-      src: 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc9.ttf',
-      fontWeight: 'bold',
+      src: 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc9.ttf', // Bold
+      fontWeight: 700,
     },
   ],
 });
 
-// Sử dụng font mặc định Helvetica để tránh lỗi loading font từ server
 const styles = StyleSheet.create({
   page: {
     padding: 30,

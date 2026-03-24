@@ -4,10 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import authService, { User } from "@/services/auth.service";
+import categoryService, { Category } from "@/services/category.service";
 
 export default function PublicHeader() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
@@ -30,7 +32,19 @@ export default function PublicHeader() {
       setLoading(false);
     };
 
+    const fetchCategories = async () => {
+      try {
+        const response = await categoryService.getAllCategories();
+        if (response.success) {
+          setCategories(response.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch categories", error);
+      }
+    };
+
     fetchUser();
+    fetchCategories();
   }, []);
 
   const handleLogout = () => {
@@ -81,11 +95,37 @@ export default function PublicHeader() {
                 </Link>
               </div>
               
-              <div className="group relative flex items-center cursor-pointer">
-                <Link href="/thuc-don" className="text-text-main hover:text-primary px-2 py-2 text-[13px] xl:text-[15px] font-bold uppercase transition-colors flex items-center gap-1 whitespace-nowrap">
+              <div className="group relative py-2">
+                <Link href="/thuc-don" className="text-text-main group-hover:text-primary px-2 py-2 text-[13px] xl:text-[15px] font-bold uppercase transition-all flex items-center gap-1 whitespace-nowrap">
                   Thực đơn
-                  <svg className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-text-muted group-hover:text-primary transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"></path></svg>
+                  <svg className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-text-muted group-hover:text-primary group-hover:rotate-180 transition-all duration-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"></path></svg>
                 </Link>
+
+                {/* Dropdown Menu */}
+                <div className="absolute top-full left-0 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 py-3 opacity-0 translate-y-4 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-300 z-[60]">
+                  <div className="max-h-[400px] overflow-y-auto no-scrollbar">
+                    {categories.length > 0 ? (
+                      categories.map((category) => (
+                        <Link 
+                          key={category.id}
+                          href={`/thuc-don?category=${category.id}`} 
+                          className="flex items-center justify-between px-5 py-3 hover:bg-red-50 group/item transition-colors"
+                        >
+                          <span className="text-sm font-bold text-gray-700 group-hover/item:text-primary transition-colors">
+                            {category.name}
+                          </span>
+                          <div className="w-6 h-6 rounded-lg bg-gray-50 flex items-center justify-center group-hover/item:bg-primary/10 group-hover/item:text-primary transition-all">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"></path></svg>
+                          </div>
+                        </Link>
+                      ))
+                    ) : (
+                      <div className="px-5 py-4 text-center">
+                        <p className="text-xs font-bold text-gray-400 uppercase italic">Đang cập nhật...</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
               <Link href="/lien-he" className="text-text-main hover:text-primary px-2 py-2 text-[13px] xl:text-[15px] font-bold uppercase transition-colors whitespace-nowrap">
                 Liên hệ
