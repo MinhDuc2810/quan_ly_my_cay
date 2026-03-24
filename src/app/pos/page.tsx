@@ -414,7 +414,7 @@ export default function StaffPOS() {
         <div className="flex items-center gap-6">
 
           <Link
-            href={user?.role === "ADMIN" ? "/admin/profile" : "/staff/profile"}
+            href={user?.role === "ADMIN" ? "/admin/profile" : "/pos/profile"}
             className="text-right hidden sm:block group hover:bg-white/5 px-4 py-2 rounded-xl transition-all"
           >
             <p className="text-[11px] font-bold text-gray-400 leading-none group-hover:text-primary transition-colors">Phòng làm việc</p>
