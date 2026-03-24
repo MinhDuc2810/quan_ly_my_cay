@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from "react";
 import authService, { User } from "@/services/auth.service";
+import orderService, { Order } from "@/services/order.service";
 import Image from "next/image";
 
-type TabType = "PROFILE" | "VOUCHERS" | "BOOKINGS" | "POINTS";
+type TabType = "PROFILE" | "BOOKINGS" | "POINTS";
 
 export default function ProfileContent() {
   const [activeTab, setActiveTab] = useState<TabType>("PROFILE");
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
   // States for Change Password
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
@@ -32,18 +35,7 @@ export default function ProfileContent() {
   const [updateLoading, setUpdateLoading] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Mock Data for User Management
-  const vouchers = [
-    { id: 1, code: "SASIN50K", discount: "50,000đ", expiry: "2026-04-15", status: "UNUSED", min_bill: "200,000đ" },
-    { id: 2, code: "MYCAYLEVEL7", discount: "20,000đ", expiry: "2026-03-30", status: "UNUSED", min_bill: "100,000đ" },
-    { id: 3, code: "WELCOMENEW", discount: "10%", expiry: "2026-01-01", status: "EXPIRED", min_bill: "0đ" },
-  ];
-
-  const bookings = [
-    { id: 101, date: "2026-03-25", time: "18:30", guests: 4, table: "Bàn 08", status: "CONFIRMED" },
-    { id: 102, date: "2026-03-10", time: "12:00", guests: 2, table: "Bàn 02", status: "COMPLETED" },
-    { id: 103, date: "2026-02-14", time: "19:00", guests: 2, table: "Bàn 15", status: "CANCELLED" },
-  ];
+  // Removed mock data
 
   const pointsHistory = [
     { id: 1, date: "2026-03-10", type: "EARNED", points: 45, desc: "Thanh toán hóa đơn #HD2034" },
@@ -53,9 +45,11 @@ export default function ProfileContent() {
 
   useEffect(() => {
     const fetchUser = async () => {
+      console.log("Fetching user profile...");
       try {
         const response = await authService.getMe();
         if (response.success) {
+          console.log("Profile fetched successfully:", response.data);
           setUser(response.data.user);
           setProfile(response.data.profile);
         }
@@ -68,6 +62,27 @@ export default function ProfileContent() {
 
     fetchUser();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "BOOKINGS" && user?.role === "CUSTOMER") {
+      const fetchOrders = async () => {
+        console.log("Fetching customer orders (BOOKINGS tab)...");
+        setOrdersLoading(true);
+        try {
+          const res = await orderService.getOrders();
+          console.log("Orders API Response:", res);
+          if (res.success) {
+            setOrders(res.data);
+          }
+        } catch (error) {
+          console.error("Failed to fetch orders", error);
+        } finally {
+          setOrdersLoading(false);
+        }
+      };
+      fetchOrders();
+    }
+  }, [activeTab, user?.role]);
 
   const openUpdateModal = () => {
     if (profile) {
@@ -141,7 +156,6 @@ export default function ProfileContent() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-12 space-y-10 animate-in fade-in duration-700">
-      {/* Premium Header */}
       <div className="relative overflow-hidden rounded-[3.5rem] bg-gray-900 border border-white/5 p-10 sm:p-14 shadow-2xl">
         <div className="absolute top-0 right-0 w-80 h-80 bg-primary/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2"></div>
         <div className="absolute bottom-0 left-0 w-40 h-40 bg-rose-500/10 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2"></div>
@@ -181,10 +195,10 @@ export default function ProfileContent() {
                   </div>
                 </div>
                 <div className="bg-white/5 border border-white/10 px-8 py-5 rounded-[2rem] backdrop-blur-md">
-                  <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1 block">Voucher Khả dụng</span>
+                  <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1 block">Tích lũy năm nay</span>
                   <div className="flex items-baseline gap-2">
-                      <span className="text-white font-black text-3xl italic tracking-tighter">{vouchers.filter(v => v.status === 'UNUSED').length}</span>
-                      <span className="text-gray-500 font-bold text-xs">Mã</span>
+                      <span className="text-white font-black text-3xl italic tracking-tighter">0</span>
+                      <span className="text-gray-500 font-bold text-xs">Đơn</span>
                   </div>
                 </div>
               </div>
@@ -193,13 +207,11 @@ export default function ProfileContent() {
         </div>
       </div>
 
-      {/* Navigation Tabs - Only for customers */}
       {isCustomer && (
         <div className="flex overflow-x-auto no-scrollbar gap-2 p-1.5 bg-gray-100/50 rounded-[2rem] border border-gray-100">
           {[
             { id: "PROFILE", label: "Hồ sơ cá nhân", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> },
-            { id: "VOUCHERS", label: "Ưu đãi của tôi", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5l-1.761 1.761a2 2 0 0 0 0 2.828l.828.828a2 2 0 0 1 0 2.828l-1.828 1.828a2 2 0 0 1-2.828 0l-.828-.828a2 2 0 0 0-2.828 0L4 16"></path><path d="m13 22-3-3"></path><path d="m9 18-3-3"></path></svg> },
-            { id: "BOOKINGS", label: "Lịch sử đặt bàn", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> },
+            { id: "BOOKINGS", label: "Lịch sử dùng món", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> },
             { id: "POINTS", label: "Lịch sử tích điểm", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v8"></path><path d="M8 12h8"></path></svg> }
           ].map(tab => (
             <button
@@ -214,7 +226,6 @@ export default function ProfileContent() {
         </div>
       )}
 
-      {/* Tab Content */}
       <div className={!isCustomer ? "" : "min-h-[500px]"}>
         {activeTab === "PROFILE" && (
            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in slide-in-from-bottom-6 duration-700">
@@ -254,66 +265,48 @@ export default function ProfileContent() {
            </div>
         )}
 
-        {isCustomer && activeTab === "VOUCHERS" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-in slide-in-from-bottom-6 duration-700">
-             {vouchers.map(v => (
-               <div key={v.id} className={`bg-white rounded-[2.5rem] border-2 border-dashed p-8 relative overflow-hidden group ${v.status === 'EXPIRED' ? 'opacity-50 grayscale' : 'border-primary/20 hover:border-primary/40'}`}>
-                  {v.status === 'EXPIRED' && <div className="absolute top-4 right-4 bg-gray-500 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase italic">Hết hạn</div>}
-                  <div className="space-y-4">
-                    <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
-                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5l-1.761 1.761a2 2 0 0 0 0 2.828l.828.828a2 2 0 0 1 0 2.828l-1.828 1.828a2 2 0 0 1-2.828 0l-.828-.828a2 2 0 0 0-2.828 0L4 16"></path></svg>
-                    </div>
-                    <div>
-                       <h4 className="text-2xl font-black text-gray-800 tracking-tight italic">Giảm {v.discount}</h4>
-                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Đơn từ {v.min_bill}</p>
-                    </div>
-                    <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
-                       <span className="font-mono font-black text-lg tracking-widest text-primary">{v.code}</span>
-                       <button disabled={v.status !== 'UNUSED'} className="bg-gray-900 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50">Sao chép</button>
-                    </div>
-                    <p className="text-[9px] font-bold text-gray-400 mt-2 italic">Hết hạn: {new Date(v.expiry).toLocaleDateString('vi-VN')}</p>
-                  </div>
-               </div>
-             ))}
-          </div>
-        )}
-
         {isCustomer && activeTab === "BOOKINGS" && (
            <div className="bg-white rounded-[3rem] shadow-xl border border-gray-100 overflow-hidden animate-in slide-in-from-bottom-6 duration-700">
-              <table className="w-full">
-                 <thead>
-                    <tr className="bg-gray-50 border-b border-gray-100">
-                       <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Thông tin bàn</th>
-                       <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Thời gian</th>
-                       <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Số người</th>
-                       <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Trạng thái</th>
-                       <th className="px-8 py-5"></th>
-                    </tr>
-                 </thead>
-                 <tbody className="divide-y divide-gray-50">
-                    {bookings.map(b => (
-                       <tr key={b.id} className="hover:bg-gray-50/50 transition-colors group">
-                          <td className="px-8 py-6 font-black text-gray-800 uppercase italic">ID #{b.id} - {b.table}</td>
-                          <td className="px-8 py-6">
-                             <p className="font-bold text-gray-800">{new Date(b.date).toLocaleDateString('vi-VN')}</p>
-                             <p className="text-xs text-gray-400 font-medium">{b.time}</p>
-                          </td>
-                          <td className="px-8 py-6 font-bold text-gray-800">{b.guests} Thành viên</td>
-                          <td className="px-8 py-6">
-                             <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                               b.status === 'CONFIRMED' ? 'bg-emerald-50 text-emerald-600' : 
-                               b.status === 'COMPLETED' ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'
-                             }`}>
-                               {b.status === 'CONFIRMED' ? 'Đã xác nhận' : b.status === 'COMPLETED' ? 'Hoàn thành' : 'Đã hủy'}
-                             </span>
-                          </td>
-                          <td className="px-8 py-6 text-right">
-                             <button className="text-gray-300 hover:text-primary transition-colors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg></button>
-                          </td>
-                       </tr>
-                    ))}
-                 </tbody>
-              </table>
+              {ordersLoading ? (
+                <div className="p-20 text-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div></div>
+              ) : orders.length > 0 ? (
+                <table className="w-full">
+                  <thead>
+                      <tr className="bg-gray-50 border-b border-gray-100">
+                        <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Mã đơn hàng</th>
+                        <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Bàn</th>
+                        <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Thời gian</th>
+                        <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Tổng tiền</th>
+                        <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Trạng thái</th>
+                      </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                      {orders.map(order => (
+                        <tr key={order.id} className="hover:bg-gray-50/50 transition-colors group">
+                            <td className="px-8 py-6 font-black text-gray-800 uppercase italic">#{order.order_code}</td>
+                            <td className="px-8 py-6 font-bold text-gray-800">{order.table?.table_number || 'Mang về'}</td>
+                            <td className="px-8 py-6">
+                              <p className="font-bold text-gray-800">{new Date(order.created_at).toLocaleDateString('vi-VN')}</p>
+                              <p className="text-xs text-gray-400 font-medium">{new Date(order.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</p>
+                            </td>
+                            <td className="px-8 py-6 font-black text-primary">{order.final_amount.toLocaleString()}đ</td>
+                            <td className="px-8 py-6">
+                              <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                                order.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' : 
+                                order.status === 'CANCELLED' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'
+                              }`}>
+                                {order.status === 'COMPLETED' ? 'Hoàn thành' : order.status === 'CANCELLED' ? 'Đã hủy' : 'Đang xử lý'}
+                              </span>
+                            </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="py-20 text-center">
+                  <p className="text-gray-400 font-bold uppercase italic tracking-widest">Bạn chưa có đơn hàng nào</p>
+                </div>
+              )}
            </div>
         )}
 
@@ -323,7 +316,7 @@ export default function ProfileContent() {
                  <h3 className="text-xl font-black text-gray-800 uppercase italic tracking-tighter">Lịch sử giao dịch điểm</h3>
                  <span className="text-[10px] font-black text-primary uppercase tracking-[2px]">Cập nhật: {new Date().toLocaleDateString('vi-VN')}</span>
               </div>
-              {pointsHistory.filter(p => !p.desc.toLowerCase().includes("voucher")).map(p => (
+              {pointsHistory.map(p => (
                  <div key={p.id} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all">
                     <div className="flex items-center gap-5">
                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black ${p.type === 'EARNED' ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
