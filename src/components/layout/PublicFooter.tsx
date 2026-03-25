@@ -71,7 +71,7 @@ export default function PublicFooter() {
             </h3>
             <div className="text-gray-600 text-[14px] leading-relaxed">
               <span className="font-semibold text-gray-800 block mb-1">Văn phòng:</span>
-              172Bis - 174 Trần Hưng Đạo, Phường Nguyễn Cư Trinh, Quận 1, Thành phố Hồ Chí Minh, Việt Nam.
+             Số 54 Triều Khúc, phường Thanh Liệt, Hà Nội.
             </div>
           </div>
 
