@@ -40,12 +40,14 @@ export default function AdminInvoicesPage() {
   }, []);
 
   const fetchInvoices = async (page = 1) => {
+    console.log(`🔍 [AdminInvoicesPage] Đang tải danh sách hóa đơn - Trang: ${page}, Tìm kiếm: "${searchQuery}", Lọc: ${paymentMethodFilter}`);
     setLoading(true);
     try {
       const res = await orderService.getOrders({ 
         page, 
         order_code: searchQuery,
       });
+      console.log(`✅ [AdminInvoicesPage] Danh sách hóa đơn đã tải thành công:`, res.data);
       if (res.success) {
         let finalData = res.data; 
         if (paymentMethodFilter !== 'ALL') {
@@ -203,7 +205,7 @@ export default function AdminInvoicesPage() {
                         <FileText size={16} />
                       </div>
                       <span className="font-mono font-black text-xs text-gray-800">
-                         #{invoice.id}
+                         {invoice.id}
                       </span>
                     </div>
                   </td>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import authService, { User } from "@/services/auth.service";
 import orderService, { Order } from "@/services/order.service";
+import customerService from "@/services/customer.service";
 import Image from "next/image";
 
 type TabType = "PROFILE" | "BOOKINGS" | "POINTS";
@@ -14,6 +15,8 @@ export default function ProfileContent() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [pointsHistory, setPointsHistory] = useState<any[]>([]);
+  const [pointsLoading, setPointsLoading] = useState(false);
 
   // States for Change Password
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
@@ -37,11 +40,7 @@ export default function ProfileContent() {
 
   // Removed mock data
 
-  const pointsHistory = [
-    { id: 1, date: "2026-03-10", type: "EARNED", points: 45, desc: "Thanh toán hóa đơn #HD2034" },
-    { id: 2, date: "2026-03-05", type: "SPENT", points: -100, desc: "Đổi Voucher Giảm 50K" },
-    { id: 3, date: "2026-02-28", type: "EARNED", points: 55, desc: "Thanh toán hóa đơn #HD1982" },
-  ];
+  // Removed mock data
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -81,6 +80,24 @@ export default function ProfileContent() {
         }
       };
       fetchOrders();
+    }
+
+    if (activeTab === "POINTS" && user?.role === "CUSTOMER") {
+        const fetchPoints = async () => {
+          console.log("Fetching customer points history...");
+          setPointsLoading(true);
+          try {
+            const res = await customerService.getMyPointsHistory();
+            if (res.success) {
+              setPointsHistory(res.data);
+            }
+          } catch (error) {
+            console.error("Failed to fetch points history", error);
+          } finally {
+            setPointsLoading(false);
+          }
+        };
+        fetchPoints();
     }
   }, [activeTab, user?.role]);
 
@@ -316,22 +333,31 @@ export default function ProfileContent() {
                  <h3 className="text-xl font-black text-gray-800 uppercase italic tracking-tighter">Lịch sử giao dịch điểm</h3>
                  <span className="text-[10px] font-black text-primary uppercase tracking-[2px]">Cập nhật: {new Date().toLocaleDateString('vi-VN')}</span>
               </div>
-              {pointsHistory.map(p => (
-                 <div key={p.id} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all">
-                    <div className="flex items-center gap-5">
-                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black ${p.type === 'EARNED' ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
-                          {p.type === 'EARNED' ? '+' : '-'}
-                       </div>
-                       <div>
-                          <p className="font-extrabold text-gray-800 tracking-tight">{p.desc}</p>
-                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{new Date(p.date).toLocaleDateString('vi-VN')}</p>
-                       </div>
-                    </div>
-                    <div className={`text-xl font-black italic ${p.type === 'EARNED' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                       {p.points} Pts
-                    </div>
-                 </div>
-              ))}
+              
+              {pointsLoading ? (
+                 <div className="p-20 text-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div></div>
+              ) : pointsHistory && pointsHistory.length > 0 ? (
+                pointsHistory.map(p => (
+                  <div key={p.id} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all">
+                     <div className="flex items-center gap-5">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black ${p.points > 0 ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
+                           {p.points > 0 ? '+' : ''}
+                        </div>
+                        <div>
+                           <p className="font-extrabold text-gray-800 tracking-tight">{p.description || p.reason || p.desc}</p>
+                           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{new Date(p.created_at || p.date).toLocaleDateString('vi-VN')} {new Date(p.created_at || p.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                     </div>
+                     <div className={`text-xl font-black italic ${p.points > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                        {p.points > 0 ? `+${p.points}` : p.points} Pts
+                     </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-20 text-center">
+                   <p className="text-gray-400 font-bold uppercase italic tracking-widest">Chưa có lịch sử giao dịch điểm</p>
+                </div>
+              )}
            </div>
         )}
       </div>

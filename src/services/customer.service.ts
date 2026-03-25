@@ -66,6 +66,11 @@ const customerService = {
     const response = await api.get<CustomerSearchResponse>("/customers/search", { params: { phone } });
     return response.data;
   },
+
+  getMyPointsHistory: async (params?: { page?: number; per_page?: number }): Promise<any> => {
+    const response = await api.get("/customers/my-points/history", { params });
+    return response.data;
+  },
 };
 
 export default customerService;
