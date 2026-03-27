@@ -7,6 +7,7 @@ import productService, { ProductListParams } from "@/services/product.service";
 import categoryService from "@/services/category.service";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import api from "@/lib/axios";
+import { getImageUrl } from "@/lib/utils";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -63,12 +64,12 @@ export default function ProductsPage() {
       label: "Hình ảnh",
       render: (url: string) => {
         let imageUrl = url ? (url.includes("|") ? url.split("|")[0] : url) : "/placeholder.png";
-        
+
         // Handle relative paths from backend
         if (imageUrl.startsWith("/uploads")) {
           imageUrl = `https://seoul-spicy-production.up.railway.app${imageUrl}`;
         }
-        
+
         return (
           <div className="relative w-14 h-14 rounded-2xl overflow-hidden shadow-sm border border-gray-100 group">
             <Image src={imageUrl} alt="Product" fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
@@ -78,30 +79,32 @@ export default function ProductsPage() {
     },
     { key: "name", label: "Tên món ăn", render: (name: string) => <span className="font-black text-gray-800 tracking-tight leading-none">{name}</span> },
     {
-      key: "category", 
-      label: "Danh mục", 
+      key: "category",
+      label: "Danh mục",
       render: (cat: any) => (
         <span className="bg-primary/10 text-primary px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest border border-primary/20">
           {cat?.name || "N/A"}
         </span>
-      ) 
+      )
     },
-    { 
-      key: "price", 
-      label: "Giá bán", 
-      render: (price: number) => <span className="font-bold text-gray-700">{price.toLocaleString("vi-VN")} đ</span> 
+    {
+      key: "price",
+      label: "Giá bán",
+      render: (price: number) => <span className="font-bold text-gray-700">{price.toLocaleString("vi-VN")} đ</span>
     },
     {
       key: "stock_quantity",
       label: "Tồn kho",
       render: (stock: number) => <span className="font-black text-gray-500">{stock}</span>
     },
-    { key: "status", label: "Trạng thái", render: (status: number) => (
-      <span className="flex items-center gap-2">
-        <span className={`w-2 h-2 rounded-full ${status === 1 ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-400'}`}></span>
-        <span className={`text-xs font-bold ${status === 1 ? 'text-green-600' : 'text-red-400'}`}>{status === 1 ? "Sẵn có" : "Tạm ngưng"}</span>
-      </span>
-    )},
+    {
+      key: "status", label: "Trạng thái", render: (status: number) => (
+        <span className="flex items-center gap-2">
+          <span className={`w-2 h-2 rounded-full ${status === 1 ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-400'}`}></span>
+          <span className={`text-xs font-bold ${status === 1 ? 'text-green-600' : 'text-red-400'}`}>{status === 1 ? "Sẵn có" : "Tạm ngưng"}</span>
+        </span>
+      )
+    },
   ];
 
   const handleAdd = () => {
@@ -150,10 +153,10 @@ export default function ProductsPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
-    
+
     const formElement = e.target as HTMLFormElement;
     const formDataPayload = new FormData();
-    
+
     // Ánh xạ các trường theo format yêu cầu của Backend
     formDataPayload.append("category_id", (formElement.elements.namedItem("category_id") as HTMLSelectElement).value);
     formDataPayload.append("name", (formElement.elements.namedItem("name") as HTMLInputElement).value);
@@ -164,9 +167,11 @@ export default function ProductsPage() {
     formDataPayload.append("status", (formElement.elements.namedItem("status") as HTMLSelectElement).value === "Sẵn có" ? "1" : "0");
 
     // Thêm các file ảnh (Gửi dưới dạng mảng images[])
-    selectedFiles.forEach((file) => {
-      formDataPayload.append("images[]", file);
-    });
+    if (selectedFiles.length > 0) {
+      selectedFiles.forEach((file) => {
+        formDataPayload.append("images", file);
+      });
+    }
 
     // Dev Log: Dữ liệu gửi đi
     console.log("--- DỮ LIỆU GỬI LÊN ---");
@@ -177,26 +182,24 @@ export default function ProductsPage() {
     try {
       let result: any;
       if (currentProduct) {
-        // Một số Backend Laravel/PHP yêu cầu phương thức _METHOD=PUT khi gửi FormData qua POST
-        formDataPayload.append("_method", "PUT");
-        const response = await api.post(`/products/${currentProduct.id}`, formDataPayload, {
-           headers: { "Content-Type": "multipart/form-data" }
-        });
-        result = response.data;
+        result = await productService.updateProduct(currentProduct.id, formDataPayload);
       } else {
         result = await productService.createProduct(formDataPayload);
       }
 
       console.log("--- KẾT QUẢ TRẢ VỀ ---", result);
 
-      if (result && (result.success === true || result.success === "true")) {
+      if (result && (result.success === true || result.success === "true" || result.status === 200 || result.status === 201)) {
         setIsModalOpen(false);
+        setSelectedFiles([]);
+        setImagePreview(null);
         fetchProducts();
       } else {
         const errorList = result?.errors ? Object.values(result.errors).flat() : [result?.message || "Dữ liệu không hợp lệ."];
         setLocalError(errorList.join("\n"));
       }
     } catch (err: any) {
+      console.error("Save product failed:", err);
       if (err.response?.data?.errors) {
         setLocalError(Object.values(err.response.data.errors).flat().join("\n"));
       } else {
@@ -210,14 +213,14 @@ export default function ProductsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
         <div className="flex items-center gap-4">
           <div className="p-4 bg-primary rounded-[1.5rem] text-white shadow-xl shadow-primary/20 rotate-3">
-             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path></svg>
           </div>
           <div>
             <h2 className="text-2xl font-black text-gray-800 tracking-tight">Thực đơn Nhà hàng</h2>
             <p className="text-gray-400 font-medium text-sm mt-0.5">Quản lý toàn bộ Món ăn & Đồ uống Mỳ Cay SASIN.</p>
           </div>
         </div>
-        <button 
+        <button
           onClick={handleAdd}
           className="bg-primary hover:bg-rose-600 text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 flex items-center justify-center gap-2 group"
         >
@@ -239,9 +242,9 @@ export default function ProductsPage() {
       >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 bg-gray-50/50 p-6 rounded-[2.5rem] border border-gray-100/50">
           <div className="relative group">
-            <input 
-              type="text" 
-              placeholder="Tìm tên món ăn..." 
+            <input
+              type="text"
+              placeholder="Tìm tên món ăn..."
               className="w-full bg-white border border-gray-200 pl-12 pr-6 py-4 rounded-2xl font-bold text-gray-700 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all shadow-sm"
               value={filters.name}
               onChange={(e) => setFilters({ ...filters, name: e.target.value, page: 1 })}
@@ -291,14 +294,14 @@ export default function ProductsPage() {
               {/* Image Upload */}
               <div className="flex flex-col items-center gap-4 bg-gray-50/50 p-8 rounded-3xl border-2 border-dashed border-gray-100 group transition-all hover:bg-white hover:border-primary/20">
                 <div className="relative w-40 h-40 rounded-3xl border-4 border-white shadow-2xl overflow-hidden bg-white">
-                   {imagePreview ? (
-                      <img src={imagePreview} className="w-full h-full object-cover scale-110 group-hover:scale-125 transition-transform duration-500" alt="Preview" />
-                   ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-gray-200">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                        <p className="text-[10px] font-black uppercase tracking-widest mt-2">Chưa có ảnh</p>
-                      </div>
-                   )}
+                  {imagePreview ? (
+                    <img src={getImageUrl(imagePreview)} className="w-full h-full object-cover scale-110 group-hover:scale-125 transition-transform duration-500" alt="Preview" />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-200">
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                      <p className="text-[10px] font-black uppercase tracking-widest mt-2">Chưa có ảnh</p>
+                    </div>
+                  )}
                 </div>
                 <label className="cursor-pointer bg-white border border-gray-100 px-8 py-3 rounded-2xl text-xs font-black text-primary shadow-sm hover:bg-primary hover:text-white transition-all active:scale-95 uppercase tracking-widest">
                   Chọn ảnh sản phẩm
@@ -333,7 +336,7 @@ export default function ProductsPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-6">
-                 <div className="space-y-2">
+                <div className="space-y-2">
                   <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Số lượng tồn kho</label>
                   <input name="stock_quantity" type="number" defaultValue={currentProduct?.stock_quantity || 0} required className="w-full bg-gray-50 border border-gray-100 px-5 py-4 rounded-2xl font-bold text-gray-700 focus:border-primary outline-none transition-all" placeholder="100" />
                 </div>

@@ -289,7 +289,7 @@ export default function StaffPOS() {
         setCustomerPhone("");
         setFoundCustomer(null);
         setVoucherCode("");
-        
+
         // Refresh table list to reflect AVAILABLE status
         const tableRes = await tableService.getTables();
         if (tableRes.success) setTables(tableRes.data);
@@ -319,7 +319,7 @@ export default function StaffPOS() {
       if (res.success) {
         setOrderSuccess(`Thanh toán thành công!`);
         setTimeout(() => setOrderSuccess(null), 4000);
-        
+
         // Reset POS
         setCart([]);
         setSelectedTable(null);
@@ -329,7 +329,7 @@ export default function StaffPOS() {
         setCustomerPhone("");
         setFoundCustomer(null);
         setVoucherCode("");
-        
+
         // Refresh tables
         const tableRes = await tableService.getTables();
         if (tableRes.success) setTables(tableRes.data);
@@ -378,17 +378,17 @@ export default function StaffPOS() {
             quantity: item.quantity,
           })) || [];
           setCart(mappedCart);
-          
+
           if (res.data.customer_id) {
-             try {
-                const customerRes = await customerService.getCustomerById(res.data.customer_id);
-                if (customerRes.success) {
-                   setFoundCustomer(customerRes.data);
-                   setCustomerPhone(customerRes.data.phone);
-                }
-             } catch (err) {
-                console.warn("[POS] Không thể tải thông tin khách hàng ID:", res.data.customer_id);
-             }
+            try {
+              const customerRes = await customerService.getCustomerById(res.data.customer_id);
+              if (customerRes.success) {
+                setFoundCustomer(customerRes.data);
+                setCustomerPhone(customerRes.data.phone);
+              }
+            } catch (err) {
+              console.warn("[POS] Không thể tải thông tin khách hàng ID:", res.data.customer_id);
+            }
           }
 
           console.log("[POS]Loaded active order ID:", res.data.id, "for table:", table.table_number);
@@ -685,7 +685,7 @@ export default function StaffPOS() {
                 )}
                 In Tạm Tính
               </button>
-              <button 
+              <button
                 onClick={() => setIsPayDialogOpen(true)}
                 disabled={isPaying || !activeOrderId}
                 className="h-14 rounded-2xl bg-primary text-white font-black text-xs tracking-[2px] shadow-xl shadow-primary/20 hover:bg-rose-700 transition-all uppercase active:scale-95 disabled:opacity-40 disabled:grayscale flex items-center justify-center gap-2"

@@ -26,6 +26,7 @@ const sidebarMenu = [
     group: "Bán hàng", items: [
       { label: "Đơn hàng", href: "/admin/orders" },
       { label: "Quản lý bàn", href: "/admin/tables" },
+      { label: "Đặt bàn trước", href: "/admin/bookings" },
       { label: "Hóa đơn", href: "/admin/invoices" },
     ]
   },

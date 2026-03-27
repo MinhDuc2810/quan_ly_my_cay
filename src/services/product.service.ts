@@ -43,13 +43,23 @@ const productService = {
   },
 
   createProduct: async (data: any) => {
-    // Lưu ý: Nếu có upload ảnh, Backend thường yêu cầu FormData
-    const response = await api.post("/products", data);
+    // Nếu data là FormData, Axios sẽ tự động set boundary nếu header Content-Type được để trống hoặc set đúng.
+    // Tuy nhiên do axios instance có default header là application/json, ta cần override nó.
+    const response = await api.post("/products", data, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
     return response.data;
   },
 
   updateProduct: async (id: number, data: any) => {
-    const response = await api.put(`/products/${id}`, data);
+    // Dựa theo tài liệu Swagger: Khi upload file cần dùng POST với query ?_method=PUT thay vì PUT trực tiếp
+    const response = await api.post(`/products/${id}?_method=PUT`, data, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
     return response.data;
   },
 

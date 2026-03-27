@@ -4,12 +4,12 @@ import Image from "next/image";
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans selection:bg-primary selection:text-white">
-      
+
       <PublicHeader />
 
       <main className="flex-1 pt-24 pb-20">
         <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
-          
+
           {/* Section 1: Ý NGHĨA THƯƠNG HIỆU */}
           <div className="mb-24">
             <div className="flex justify-center mb-16">
@@ -32,8 +32,8 @@ export default function AboutPage() {
 
             {/* Content Cards Row 1 (3 cards) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-              <AboutCard 
-                number="1. TỔNG THỂ" 
+              <AboutCard
+                number="1. TỔNG THỂ"
                 content={[
                   { label: "Hình dạng:", text: "Logo dạng tròn, biểu trưng cho sự viên mãn, chu toàn và trọn vẹn — một nét văn hóa Á Đông rất truyền thống." },
                   { label: "Màu sắc chủ đạo:", text: "Đỏ, cam, vàng và trắng — thể hiện:" },
@@ -42,8 +42,8 @@ export default function AboutPage() {
                   { bullet: "Trắng:", text: "Tinh khiết, tạo sự đối lập để nổi bật." },
                 ]}
               />
-              <AboutCard 
-                number='2. NHÂN VẬT ỚT – "Linh Hồn Của Cay"' 
+              <AboutCard
+                number='2. NHÂN VẬT ỚT – "Linh Hồn Của Cay"'
                 content={[
                   { label: "Hình ảnh:", text: "Trái ớt đỏ được nhân cách hóa, có mắt mũi, miệng cười tự tin, giơ ngón cái 👍 — đại diện cho:" },
                   { bullet: "", text: "Cay cấp độ cao nhưng thân thiện, mời gọi khách thử thách." },
@@ -51,8 +51,8 @@ export default function AboutPage() {
                   { bullet: "", text: "Linh vật thương hiệu." },
                 ]}
               />
-              <AboutCard 
-                number="3. YẾU TỐ LỬA VÀ PHƯỢNG HOÀNG" 
+              <AboutCard
+                number="3. YẾU TỐ LỬA VÀ PHƯỢNG HOÀNG"
                 content={[
                   { label: "Hai cánh lửa đỏ", text: "Bao quanh trái ớt tạo hình giống cánh phượng hoàng — biểu tượng:" },
                   { bullet: "Sức mạnh tái sinh:", text: "“ăn cay là vượt ngưỡng giới hạn bản thân”." },
@@ -64,8 +64,8 @@ export default function AboutPage() {
             {/* Content Cards Row 2 (2 cards centered) */}
             <div className="flex flex-wrap justify-center gap-8">
               <div className="w-full md:w-[calc(33.33%-22px)]">
-                <AboutCard 
-                  number="4. CHỮ SASIN & BIỂU TƯỢNG TÔ MÌ" 
+                <AboutCard
+                  number="4. CHỮ SASIN & BIỂU TƯỢNG TÔ MÌ"
                   content={[
                     { label: "Chữ “SASIN”", text: "Cách điệu vòng cung theo hình tròn, chữ O thay bằng tô mì nóng bốc khói với đôi đũa — tạo dấu ấn:" },
                     { bullet: "", text: "Gắn liền văn hóa Hàn Quốc (SASIN – thủ đô ẩm thực cay)." },
@@ -75,8 +75,8 @@ export default function AboutPage() {
                 />
               </div>
               <div className="w-full md:w-[calc(33.33%-22px)]">
-                <AboutCard 
-                  number="5. CÂU CHỮ KHẲNG ĐỊNH" 
+                <AboutCard
+                  number="5. CÂU CHỮ KHẲNG ĐỊNH"
                   content={[
                     { label: "Dòng chữ", text: "“MÌ CAY 7 CẤP ĐỘ HÀN QUỐC” rõ ràng, nổi bật:" },
                     { bullet: "", text: "Nhấn mạnh USP (Unique Selling Point) – 7 cấp độ cay là trải nghiệm nổi bật, khác biệt hóa so với các thương hiệu khác." },
@@ -96,7 +96,7 @@ export default function AboutPage() {
                 </h2>
               </div>
             </div>
-            
+
             <div className="max-w-4xl mx-auto bg-gradient-to-b from-[#900000] to-[#5a0000] rounded-2xl p-8 md:p-12 shadow-2xl border border-[#c5a059]/30">
               <div className="space-y-8 text-[#fdf6e7] text-lg md:text-xl leading-relaxed font-medium">
                 <p>

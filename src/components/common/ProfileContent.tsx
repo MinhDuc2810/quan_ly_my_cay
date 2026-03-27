@@ -5,10 +5,14 @@ import authService, { User } from "@/services/auth.service";
 import orderService, { Order } from "@/services/order.service";
 import customerService from "@/services/customer.service";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
-type TabType = "PROFILE" | "BOOKINGS" | "POINTS";
+import bookingService, { Booking } from "@/services/booking.service";
+
+type TabType = "PROFILE" | "BOOKINGS" | "RESERVATIONS" | "POINTS";
 
 export default function ProfileContent() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("PROFILE");
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -17,6 +21,8 @@ export default function ProfileContent() {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [pointsHistory, setPointsHistory] = useState<any[]>([]);
   const [pointsLoading, setPointsLoading] = useState(false);
+  const [reservations, setReservations] = useState<Booking[]>([]);
+  const [reservationsLoading, setReservationsLoading] = useState(false);
 
   // States for Change Password
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
@@ -98,6 +104,24 @@ export default function ProfileContent() {
           }
         };
         fetchPoints();
+    }
+
+    if (activeTab === "RESERVATIONS" && user?.role === "CUSTOMER") {
+        const fetchReservations = async () => {
+          console.log("Fetching customer reservations...");
+          setReservationsLoading(true);
+          try {
+            const res = await bookingService.getMyBookings();
+            if (res.success) {
+              setReservations(res.data);
+            }
+          } catch (error) {
+            console.error("Failed to fetch reservations", error);
+          } finally {
+            setReservationsLoading(false);
+          }
+        };
+        fetchReservations();
     }
   }, [activeTab, user?.role]);
 
@@ -229,6 +253,7 @@ export default function ProfileContent() {
           {[
             { id: "PROFILE", label: "Hồ sơ cá nhân", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> },
             { id: "BOOKINGS", label: "Lịch sử dùng món", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> },
+            { id: "RESERVATIONS", label: "Lịch sử đặt bàn", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
             { id: "POINTS", label: "Lịch sử tích điểm", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v8"></path><path d="M8 12h8"></path></svg> }
           ].map(tab => (
             <button
@@ -327,6 +352,73 @@ export default function ProfileContent() {
            </div>
         )}
 
+        {isCustomer && activeTab === "RESERVATIONS" && (
+           <div className="bg-white rounded-[3.5rem] overflow-hidden shadow-2xl border border-gray-100 animate-in slide-in-from-bottom-6 duration-700">
+              <div className="flex items-center justify-between px-10 py-8 bg-gray-50/50 border-b border-gray-100">
+                <h3 className="text-xl font-black text-gray-800 uppercase italic tracking-tighter">Lịch sử đặt bàn trước</h3>
+                <span className="text-[10px] font-black text-primary uppercase tracking-[2px]">Tình trạng: Thời gian thực</span>
+              </div>
+              {reservationsLoading ? (
+                 <div className="p-24 text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto opacity-20"></div>
+                 </div>
+              ) : reservations && reservations.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-white">
+                        <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest italic">Ngày đặt</th>
+                        <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest italic">Giờ đón</th>
+                        <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest italic text-center">Khách</th>
+                        <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest italic">Trạng thái</th>
+                        <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest italic">Ghi chú</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {reservations.map(res => (
+                        <tr key={res.id} className="hover:bg-gray-50/50 transition-colors group">
+                          <td className="px-10 py-7 font-black text-gray-800 uppercase italic">
+                            {new Date(res.booking_date).toLocaleDateString('vi-VN')}
+                          </td>
+                          <td className="px-10 py-7 font-bold text-gray-600">
+                            {res.booking_time}
+                          </td>
+                          <td className="px-10 py-7 font-bold text-gray-800 text-center">
+                            {res.number_of_guests}
+                          </td>
+                          <td className="px-10 py-7">
+                            <span className={`inline-block px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                              res.status === 'CONFIRMED' ? 'bg-emerald-50 text-emerald-600' :
+                              res.status === 'PENDING' ? 'bg-amber-50 text-amber-600' :
+                              res.status === 'CANCELLED' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {res.status === 'CONFIRMED' ? 'Đã xác nhận' : res.status === 'PENDING' ? 'Chờ xác nhận' : res.status === 'CANCELLED' ? 'Đã hủy' : 'Hoàn thành'}
+                            </span>
+                          </td>
+                          <td className="px-10 py-7 text-xs text-gray-400 font-medium italic max-w-[200px] truncate">
+                            {res.note || 'Không có ghi chú'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="py-24 text-center space-y-4">
+                  <div className="flex justify-center flex-col items-center gap-3">
+                     <p className="text-gray-300 font-bold uppercase italic tracking-widest">Bạn chưa có lịch hẹn nào</p>
+                     <button 
+                        onClick={() => router.push("/customer/booking")}
+                        className="text-xs font-black text-primary uppercase underline hover:no-underline"
+                     >
+                        Đặt bàn ngay tại đây
+                     </button>
+                  </div>
+                </div>
+              )}
+           </div>
+        )}
+
         {isCustomer && activeTab === "POINTS" && (
            <div className="max-w-3xl mx-auto space-y-4 animate-in slide-in-from-bottom-6 duration-700">
               <div className="flex items-center justify-between mb-6 px-4">
@@ -370,7 +462,7 @@ export default function ProfileContent() {
                <button onClick={() => { setIsChangePasswordOpen(false); setPasswordMessage(null); }} className="absolute top-6 right-6 text-white/50 hover:text-white transition-all"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
             </div>
             <form onSubmit={handleChangePassword} className="p-10 space-y-6">
-              {passwordMessage && <div className={`p-4 rounded-2xl text-xs font-bold ${passwordMessage.type === "success" ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"}`}>{passwordMessage.text}</div>}
+              {passwordMessage ? <div className={`p-4 rounded-2xl text-xs font-bold ${passwordMessage.type === "success" ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"}`}>{passwordMessage.text}</div> : null}
               <div className="space-y-4">
                 <input type="password" required value={passwordData.old_password} onChange={(e) => setPasswordData({...passwordData, old_password: e.target.value})} className="w-full bg-gray-50 border border-gray-100 px-6 py-4 rounded-2xl font-bold text-gray-800 outline-none" placeholder="Mật khẩu cũ" />
                 <input type="password" required value={passwordData.new_password} onChange={(e) => setPasswordData({...passwordData, new_password: e.target.value})} className="w-full bg-gray-50 border border-gray-100 px-6 py-4 rounded-2xl font-bold text-gray-800 outline-none" placeholder="Mật khẩu mới" />
@@ -392,7 +484,7 @@ export default function ProfileContent() {
                <button onClick={() => { setIsUpdateProfileOpen(false); setUpdateData({ name: "", phone: "", email: "" }); setUpdateMessage(null); }} className="absolute top-6 right-6 text-white/50 hover:text-white transition-all"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
             </div>
             <form onSubmit={handleUpdateProfile} className="p-10 space-y-4">
-              {updateMessage && <div className={`p-4 rounded-2xl text-xs font-bold ${updateMessage.type === "success" ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"}`}>{updateMessage.text}</div>}
+              {updateMessage ? <div className={`p-4 rounded-2xl text-xs font-bold ${updateMessage.type === "success" ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"}`}>{updateMessage.text}</div> : null}
               <div className="space-y-5">
                  <div className="space-y-1">
                    <span className="text-[10px] text-gray-400 font-black uppercase ml-2 tracking-widest">Họ và tên</span>

@@ -5,14 +5,14 @@ import { Page, Text, View, Document, StyleSheet, Font } from '@react-pdf/rendere
 import { Order } from '@/services/order.service';
 
 Font.register({
-  family: 'Roboto',
+  family: 'NotoSans',
   fonts: [
     {
-      src: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf', // Regular
+      src: '/fonts/NotoSans-Regular.ttf', // Regular - tải từ /public/fonts
       fontWeight: 400,
     },
     {
-      src: 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc9.ttf', // Bold
+      src: '/fonts/NotoSans-Bold.ttf', // Bold - tải từ /public/fonts
       fontWeight: 700,
     },
   ],
@@ -21,7 +21,7 @@ Font.register({
 const styles = StyleSheet.create({
   page: {
     padding: 30,
-    fontFamily: 'Roboto',
+    fontFamily: 'NotoSans',
     fontSize: 10,
     color: '#333',
   },
@@ -132,8 +132,8 @@ const InvoicePDF = ({ order }: Props) => {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.shopInfo}>
-            <Text style={styles.shopName}>MỲ CAY SASIN - QUẬN 7</Text>
-            <Text style={styles.shopText}>Địa chỉ: 157 Nguyễn Hữu Thọ, P. Tân Phong, Q7</Text>
+            <Text style={styles.shopName}>MỲ CAY SASIN</Text>
+            <Text style={styles.shopText}>Số 54 Triều Khúc, phường Thanh Liệt, Hà Nội</Text>
             <Text style={styles.shopText}>Hotline: 1900 0123 - www.mysasin.vn</Text>
           </View>
           <View>
