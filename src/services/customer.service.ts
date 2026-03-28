@@ -71,6 +71,12 @@ const customerService = {
     const response = await api.get("/customers/my-points/history", { params });
     return response.data;
   },
+
+  updateMyProfile: async (data: any): Promise<any> => {
+    console.log("Updating profile with data:", data);
+    const response = await api.put("/customers/profile", data);
+    return response.data;
+  },
 };
 
 export default customerService;
