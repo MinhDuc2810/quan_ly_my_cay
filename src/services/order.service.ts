@@ -22,6 +22,8 @@ export interface Order {
   order_code: string;
   total_amount: number;
   discount_amount: number;
+  points_used: number;
+  points_discount: number;
   final_amount: number;
   status: 'PENDING' | 'PREPARING' | 'SERVED' | 'COMPLETED' | 'CANCELLED';
   payment_status: 'UNPAID' | 'PAID' | 'REFUNDED';
@@ -205,6 +207,30 @@ const orderService = {
       return response.data;
     } catch (error) {
       console.error(`❌ [ORDER SERVICE] payOrder - Error:`, error);
+      throw error;
+    }
+  },
+
+  applyPoints: async (id: number, points: number, customer_id: number): Promise<any> => {
+    console.log(`📦 [ORDER SERVICE] applyPoints - ID: ${id}, Points: ${points}, CustomerID: ${customer_id}`);
+    try {
+      const response = await api.post(`/orders/${id}/points`, { points, customer_id });
+      console.log(`✅ [ORDER SERVICE] applyPoints - Success:`, response.data);
+      return response.data;
+    } catch (error) {
+      console.error(`❌ [ORDER SERVICE] applyPoints - Error:`, error);
+      throw error;
+    }
+  },
+
+  removePoints: async (id: number, customer_id: number): Promise<any> => {
+    console.log(`📦 [ORDER SERVICE] removePoints - ID: ${id}, CustomerID: ${customer_id}`);
+    try {
+      const response = await api.delete(`/orders/${id}/points`, { data: { customer_id } });
+      console.log(`✅ [ORDER SERVICE] removePoints - Success:`, response.data);
+      return response.data;
+    } catch (error) {
+      console.error(`❌ [ORDER SERVICE] removePoints - Error:`, error);
       throw error;
     }
   },

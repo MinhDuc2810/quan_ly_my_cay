@@ -4,6 +4,7 @@ import { PublicHeader, PublicFooter } from "@/components/layout";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import bookingService from "@/services/booking.service";
+import authService from "@/services/auth.service";
 import { useRouter } from "next/navigation";
 import { Calendar, Users, Clock, MessageSquare, CheckCircle2, AlertCircle } from "lucide-react";
 
@@ -13,9 +14,10 @@ export default function CustomerBookingPage() {
     booking_date: "",
     booking_time: "",
     number_of_guests: 2,
-    table_id: null as number | null,
     note: ""
   });
+  
+  const [profile, setProfile] = useState<any>(null);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{
@@ -28,12 +30,25 @@ export default function CustomerBookingPage() {
     return today.toISOString().split("T")[0];
   });
 
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await authService.getMe();
+        if (response.success) {
+          setProfile(response.data.profile);
+        }
+      } catch (error) {
+        console.error("Failed to fetch profile", error);
+      }
+    };
+    fetchProfile();
+  }, []);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ 
       ...prev, 
-      [name]: name === "number_of_guests" ? parseInt(value) || 1 : 
-              name === "table_id" ? (value === "" ? null : parseInt(value)) : value 
+      [name]: name === "number_of_guests" ? parseInt(value) || 1 : value 
     }));
   };
 
@@ -43,7 +58,23 @@ export default function CustomerBookingPage() {
     setSubmitStatus({ type: null, message: "" });
 
     try {
-      const res = await bookingService.createBooking(formData);
+      if (!profile) {
+        setSubmitStatus({
+          type: "error",
+          message: "Vui lòng đăng nhập để thực hiện đặt bàn."
+        });
+        return;
+      }
+
+      const reservationData = {
+        reservation_time: `${formData.booking_date} ${formData.booking_time}:00`,
+        guest_count: formData.number_of_guests,
+        customer_name: profile.name || "Khách hàng",
+        customer_phone: profile.phone || "",
+        customer_note: formData.note
+      };
+
+      const res = await bookingService.createReservation(reservationData);
       if (res.success) {
         setSubmitStatus({
           type: "success",

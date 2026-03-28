@@ -7,7 +7,7 @@ import customerService from "@/services/customer.service";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
-import bookingService, { Booking } from "@/services/booking.service";
+import bookingService, { Booking, Reservation } from "@/services/booking.service";
 
 type TabType = "PROFILE" | "BOOKINGS" | "RESERVATIONS" | "POINTS";
 
@@ -21,7 +21,7 @@ export default function ProfileContent() {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [pointsHistory, setPointsHistory] = useState<any[]>([]);
   const [pointsLoading, setPointsLoading] = useState(false);
-  const [reservations, setReservations] = useState<Booking[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [reservationsLoading, setReservationsLoading] = useState(false);
 
   // States for Change Password
@@ -111,7 +111,7 @@ export default function ProfileContent() {
           console.log("Fetching customer reservations...");
           setReservationsLoading(true);
           try {
-            const res = await bookingService.getMyBookings();
+            const res = await bookingService.getMyReservations();
             if (res.success) {
               setReservations(res.data);
             }
@@ -180,6 +180,24 @@ export default function ProfileContent() {
       setPasswordMessage({ type: "error", text: err.response?.data?.message || "Lỗi hệ thống khi đổi mật khẩu" });
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  const handleCancelReservation = async (id: number) => {
+    if (!window.confirm("Bạn có chắc chắn muốn hủy đặt bàn này không?")) return;
+    
+    setReservationsLoading(true);
+    try {
+      const res = await bookingService.cancelReservation(id);
+      if (res.success) {
+        setReservations(prev => prev.map(r => r.id === id ? { ...r, status: 'CANCELLED' } : r));
+        alert("Đã hủy đặt bàn thành công");
+      }
+    } catch (error) {
+      console.error("Failed to cancel reservation", error);
+      alert("Hủy đặt bàn thất bại. Vui lòng thử lại sau.");
+    } finally {
+      setReservationsLoading(false);
     }
   };
 
@@ -372,34 +390,56 @@ export default function ProfileContent() {
                         <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest italic text-center">Khách</th>
                         <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest italic">Trạng thái</th>
                         <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest italic">Ghi chú</th>
+                        <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest italic">Thao tác</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {reservations.map(res => (
-                        <tr key={res.id} className="hover:bg-gray-50/50 transition-colors group">
-                          <td className="px-10 py-7 font-black text-gray-800 uppercase italic">
-                            {new Date(res.booking_date).toLocaleDateString('vi-VN')}
-                          </td>
-                          <td className="px-10 py-7 font-bold text-gray-600">
-                            {res.booking_time}
-                          </td>
-                          <td className="px-10 py-7 font-bold text-gray-800 text-center">
-                            {res.number_of_guests}
-                          </td>
-                          <td className="px-10 py-7">
-                            <span className={`inline-block px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                              res.status === 'CONFIRMED' ? 'bg-emerald-50 text-emerald-600' :
-                              res.status === 'PENDING' ? 'bg-amber-50 text-amber-600' :
-                              res.status === 'CANCELLED' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'
-                            }`}>
-                              {res.status === 'CONFIRMED' ? 'Đã xác nhận' : res.status === 'PENDING' ? 'Chờ xác nhận' : res.status === 'CANCELLED' ? 'Đã hủy' : 'Hoàn thành'}
-                            </span>
-                          </td>
-                          <td className="px-10 py-7 text-xs text-gray-400 font-medium italic max-w-[200px] truncate">
-                            {res.note || 'Không có ghi chú'}
-                          </td>
-                        </tr>
-                      ))}
+                      {reservations.map(res => {
+                        const [date, time] = res.reservation_time.split(' ');
+                        return (
+                          <tr key={res.id} className="hover:bg-gray-50/50 transition-colors group">
+                            <td className="px-10 py-7 font-black text-gray-800 uppercase italic">
+                              {date ? new Date(date).toLocaleDateString('vi-VN') : '---'}
+                            </td>
+                            <td className="px-10 py-7 font-bold text-gray-600">
+                              {time ? time.substring(0, 5) : '---'}
+                            </td>
+                            <td className="px-10 py-7 font-bold text-gray-800 text-center">
+                              {res.guest_count}
+                            </td>
+                            <td className="px-10 py-7">
+                              <span className={`inline-block px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                                res.status === 'CONFIRMED' ? 'bg-emerald-50 text-emerald-600' :
+                                res.status === 'PENDING' ? 'bg-amber-50 text-amber-600' :
+                                res.status === 'CANCELLED' ? 'bg-red-50 text-red-600' : 
+                                res.status === 'NO_SHOW' ? 'bg-gray-200 text-gray-600' : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {res.status === 'CONFIRMED' ? 'Đã xác nhận' : 
+                                 res.status === 'PENDING' ? 'Chờ xác nhận' : 
+                                 res.status === 'CANCELLED' ? 'Đã hủy' : 
+                                 res.status === 'NO_SHOW' ? 'Vắng mặt' : 'Hoàn thành'}
+                              </span>
+                            </td>
+                            <td className="px-10 py-7 text-xs text-gray-400 font-medium italic max-w-[200px] truncate">
+                              {res.customer_note || 'Không có ghi chú'}
+                            </td>
+                            <td className="px-10 py-7">
+                               {(res.status === 'PENDING' || res.status === 'CONFIRMED') ? (
+                                 <button 
+                                   onClick={() => handleCancelReservation(res.id)}
+                                   className="text-[10px] font-black text-red-500 uppercase tracking-widest hover:underline"
+                                 >
+                                   Hủy đặt bàn
+                                 </button>
+                               ) : (
+                                  <span className="text-[10px] text-gray-300 font-bold uppercase tracking-widest italic">
+                                    {res.status === 'CANCELLED' ? 'Đã hủy' : 'Không thể hủy'}
+                                  </span>
+                               )}
+                             </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

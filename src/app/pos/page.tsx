@@ -44,6 +44,10 @@ export default function StaffPOS() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
+  const [isApplyingPoints, setIsApplyingPoints] = useState(false);
+  const [pointsUsed, setPointsUsed] = useState(0);
+  const [pointsDiscount, setPointsDiscount] = useState(0);
+  const [pointsInput, setPointsInput] = useState("");
 
   // Initial Fetch
   useEffect(() => {
@@ -97,8 +101,9 @@ export default function StaffPOS() {
       if (!selectedCategoryId) return;
       try {
         const res = await productService.getProducts({
+          status: 1,
           category_id: selectedCategoryId,
-          per_page: 100
+          per_page: 100,
         });
         if (res.success) setProducts(res.data);
       } catch (err) {
@@ -161,10 +166,11 @@ export default function StaffPOS() {
     setIsOrdering(true);
     try {
       const items = cart.map(i => ({ product_id: i.id, quantity: i.quantity }));
+      console.log("📦 [POS] Đang chuẩn bị gửi items:", JSON.stringify(items, null, 2));
 
       let res;
       if (activeOrderId) {
-        console.log("[POS ORDER] Cập nhật đơn hàng:", activeOrderId);
+        console.log("🔄 [POS] Cập nhật món cho đơn hàng:", activeOrderId);
         res = await orderService.updateOrderItems(activeOrderId, items);
       } else {
         const payload = {
@@ -172,35 +178,38 @@ export default function StaffPOS() {
           customer_id: foundCustomer?.id ?? null,
           items: items,
         };
-        console.log("[POS ORDER] Gửi dữ liệu tạo đơn mới:", payload);
+        console.log("🆕 [POS] Gửi dữ liệu tạo đơn mới:", JSON.stringify(payload, null, 2));
         res = await orderService.createOrder(payload);
       }
 
-      console.log("[POS ORDER] Response từ server:", res);
+      console.log("✅ [POS] Response từ server:", res);
 
       if (res.success) {
         // Update table status locally
         setTables(prev => prev.map(t =>
           t.id === selectedTable.id ? { ...t, status: 'OCCUPIED' as any } : t
         ));
+
+        // Nếu là tạo đơn mới, hãy lưu lại activeOrderId từ response
+        if (!activeOrderId && res.data?.id) {
+          setActiveOrderId(res.data.id);
+          console.log("📍 [POS] Đã lưu activeOrderId mới:", res.data.id);
+        }
+
         const tableName = selectedTable.table_number;
-        // Reset order info
-        setCart([]);
-        setSelectedTable(null);
-        setCustomerPhone('');
-        setFoundCustomer(null);
-        setVoucherCode('');
-        setActiveOrderId(null);
         setOrderSuccess(activeOrderId ? `Đã cập nhật đơn - Bàn ${tableName}` : `Đã tạo đơn - Bàn ${tableName} đang có khách`);
-        setTimeout(() => setOrderSuccess(null), 4000);
+
+        // Thay vì Reset hết, chúng ta chỉ thông báo thành công. 
+        // Sau khi "In Tạm Tính", bàn đã có khách, người dùng có thể Thanh toán luôn
+        setTimeout(() => setOrderSuccess(null), 3000);
       } else {
-        console.warn("[POS ORDER] Tạo đơn thất bại:", res.message);
-        alert(res.message || 'Tạo đơn thất bại');
+        console.error("❌ [POS] Xử lý đơn hàng thất bại:", res.message);
+        alert(`Lỗi từ Server: ${res.message || 'Không rõ nguyên nhân'}`);
       }
     } catch (err: any) {
-      console.error("[POS ORDER] Lỗi API:", err);
-      console.error("[POS ORDER] Chi tiết lỗi:", err.response?.data);
-      alert(err.response?.data?.message || 'Lỗi kết nối Server!');
+      console.error("❌ [POS] Lỗi khi gửi request:", err);
+      const errorMsg = err.response?.data?.message || err.message || 'Lỗi kết nối Server!';
+      alert(`Lỗi hệ thống: ${errorMsg}`);
     } finally {
       setIsOrdering(false);
     }
@@ -270,6 +279,62 @@ export default function StaffPOS() {
     }
   };
 
+  const handleApplyPoints = async () => {
+    if (!activeOrderId) {
+      alert("Vui lòng in tạm tính trước khi sử dụng điểm!");
+      return;
+    }
+    const points = Number(pointsInput);
+    if (!points || points <= 0) {
+      alert("Vui lòng nhập số điểm hợp lệ!");
+      return;
+    }
+
+    if (foundCustomer && points > foundCustomer.points) {
+      alert(`Khách hàng chỉ có ${foundCustomer.points} điểm!`);
+      return;
+    }
+
+    if (!foundCustomer?.id) {
+      alert("Vui lòng chọn khách hàng trước khi dùng điểm!");
+      return;
+    }
+
+    setIsApplyingPoints(true);
+    try {
+      const res = await orderService.applyPoints(activeOrderId, points, foundCustomer.id);
+      if (res.success) {
+        setPointsUsed(res.data?.points_used || points);
+        setPointsDiscount(res.data?.points_discount || (points * 1000));
+        alert("Sử dụng điểm thành công!");
+      } else {
+        alert(res.message || "Không thể sử dụng điểm");
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Lỗi khi áp dụng điểm");
+    } finally {
+      setIsApplyingPoints(false);
+    }
+  };
+
+  const handleRemovePoints = async () => {
+    if (!activeOrderId || !foundCustomer?.id) return;
+    setIsApplyingPoints(true);
+    try {
+      const res = await orderService.removePoints(activeOrderId, foundCustomer.id);
+      if (res.success) {
+        setPointsUsed(0);
+        setPointsDiscount(0);
+        setPointsInput("");
+        alert("Đã hủy sử dụng điểm");
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Lỗi khi hủy điểm");
+    } finally {
+      setIsApplyingPoints(false);
+    }
+  };
+
   const handleCancelOrder = async () => {
     if (!activeOrderId) return;
     setIsCancelling(true);
@@ -286,6 +351,9 @@ export default function StaffPOS() {
         setActiveOrderId(null);
         setHasVoucher(false);
         setDiscountAmount(0);
+        setPointsUsed(0);
+        setPointsDiscount(0);
+        setPointsInput("");
         setCustomerPhone("");
         setFoundCustomer(null);
         setVoucherCode("");
@@ -326,6 +394,9 @@ export default function StaffPOS() {
         setActiveOrderId(null);
         setHasVoucher(false);
         setDiscountAmount(0);
+        setPointsUsed(0);
+        setPointsDiscount(0);
+        setPointsInput("");
         setCustomerPhone("");
         setFoundCustomer(null);
         setVoucherCode("");
@@ -364,9 +435,13 @@ export default function StaffPOS() {
       try {
         const res = await orderService.getActiveOrderByTable(table.id);
         if (res.success && res.data) {
+          console.log("📂 [POS] Dữ liệu đơn hàng hiện tại:", res.data);
           setActiveOrderId(res.data.id);
           setHasVoucher(!!res.data.voucher_id);
           setDiscountAmount(Number(res.data.discount_amount) || 0);
+          setPointsUsed(res.data.points_used || 0);
+          setPointsDiscount(res.data.points_discount || 0);
+          if (res.data.points_used) setPointsInput(res.data.points_used.toString());
           if (res.data.voucher_id) {
             // If the order has a voucher, we could potentially show its code if the API returned it
             // For now, at least we know to show the "Huỷ" button
@@ -402,304 +477,255 @@ export default function StaffPOS() {
   return (
     <div className="fixed inset-0 bg-[#fcfaf2] flex flex-col font-sans overflow-hidden">
       {/* Header */}
-      <header className="h-16 bg-gray-900 text-white flex items-center justify-between px-6 shadow-xl shrink-0">
+      <header className="h-16 bg-gray-900 text-white flex items-center justify-between px-6 shadow-xl shrink-0 z-50">
         <div className="flex items-center gap-4">
           <Link href="/" className="bg-primary/20 p-2 rounded-xl border border-white/10 hover:bg-primary/40 transition-all">
             <Image src="/logo1.jpg" alt="Logo" width={24} height={24} className="rounded-full" />
           </Link>
           <div className="h-6 w-px bg-white/10"></div>
-          <h1 className="text-sm font-black tracking-[3px] uppercase italic text-rose-500">Mỳ Cay SASIN POS</h1>
+          <h1 className="text-sm font-black tracking-widest uppercase italic text-rose-500">Mỳ Cay SASIN POS</h1>
         </div>
 
-        <div className="flex items-center gap-6">
-
+        <div className="flex items-center gap-4">
           <Link
             href={user?.role === "ADMIN" ? "/admin/profile" : "/pos/profile"}
             className="text-right hidden sm:block group hover:bg-white/5 px-4 py-2 rounded-xl transition-all"
           >
-            <p className="text-[11px] font-bold text-gray-400 leading-none group-hover:text-primary transition-colors">Phòng làm việc</p>
-            <h4 className="text-xs font-black mt-1 uppercase tracking-wider group-hover:text-white transition-colors">{user?.username || "Nhân viên"}</h4>
+            <p className="text-[10px] font-bold text-gray-400 group-hover:text-primary leading-none uppercase tracking-tighter transition-colors">Nhân viên</p>
+            <h4 className="text-xs font-black mt-1 uppercase italic group-hover:text-white transition-colors">{user?.username || "Sasin Staff"}</h4>
           </Link>
           <button
             onClick={() => setIsLogoutDialogOpen(true)}
-            className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 p-2 rounded-xl transition-all border border-rose-500/20"
+            className="bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white p-2.5 rounded-xl transition-all border border-rose-500/20 group"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
           </button>
         </div>
       </header>
 
       {/* POS Content */}
-      <main className="flex-1 flex overflow-hidden p-4 gap-4">
-        {/* Left Section */}
-        <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-
-          {/* Sơ đồ bàn */}
-          <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-gray-100/50 shrink-0">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex gap-2">
-                <h3 className="text-lg font-black uppercase tracking-tighter italic text-gray-800">Sơ đồ nhà hàng</h3>
-              </div>
-              <div className="flex gap-5 text-[9px] font-black text-gray-400 uppercase tracking-widest bg-gray-50/50 px-5 py-2.5 rounded-full border border-gray-100">
-                <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-400"></span> Trống</span>
-                <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-blue-500"></span> Đang có khách</span>
-                <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-amber-500"></span> Đã đặt</span>
-                <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-rose-500"></span> Bảo trì</span>
+      <main className="flex-1 flex overflow-hidden p-3 gap-3">
+        {/* Left Section: Tables & Menu */}
+        <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+          {/* Sơ đồ bàn - Compact */}
+          <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100/50 shrink-0">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-black uppercase tracking-widest italic text-gray-800">Sơ đồ bàn</h3>
+              <div className="flex gap-3 text-[8px] font-black text-gray-400 uppercase bg-gray-50/50 px-3 py-1.5 rounded-full border border-gray-100">
+                <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Trống</span>
+                <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Khách</span>
               </div>
             </div>
-
-            <div className="grid grid-cols-4 sm:grid-cols-6 xl:grid-cols-8 gap-3 max-h-[160px] overflow-y-auto no-scrollbar pr-1">
+            <div className="grid grid-cols-4 sm:grid-cols-6 xl:grid-cols-8 gap-2.5 max-h-[120px] overflow-y-auto no-scrollbar pr-1">
               {tables.map(table => (
                 <button
                   key={table.id}
                   disabled={table.status === 'MAINTENANCE'}
                   onClick={() => handleTableSelect(table)}
-                  className={`h-16 rounded-[1.25rem] border-2 transition-all flex flex-col items-center justify-center p-2 relative group shadow-sm ${selectedTable?.id === table.id ? 'border-primary bg-primary/5 ring-4 ring-primary/10' :
-                    tableStatusColors[table.status]
-                    }`}
+                  className={`h-12 rounded-xl border-2 transition-all flex flex-col items-center justify-center p-1 relative group ${selectedTable?.id === table.id ? 'border-primary bg-primary/5 ring-4 ring-primary/5' : tableStatusColors[table.status]}`}
                 >
-                  <div className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${statusDotColors[table.status]}`}></div>
-                  <span className={`text-[13px] font-black ${selectedTable?.id === table.id ? 'text-primary' : 'group-hover:text-primary transition-colors'}`}>{table.table_number}</span>
-                  <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">{table.capacity} Chỗ</span>
+                  <div className={`absolute top-1.5 right-1.5 w-1 h-1 rounded-full ${statusDotColors[table.status]}`}></div>
+                  <span className={`text-[12px] font-black ${selectedTable?.id === table.id ? 'text-primary' : 'group-hover:text-primary'}`}>{table.table_number}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Danh mục & Thực đơn */}
-          <div className="flex-1 bg-white rounded-[2rem] p-5 shadow-sm border border-gray-100/50 flex flex-col overflow-hidden">
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-4 shrink-0">
+          {/* Menu - Flexible */}
+          <div className="flex-1 bg-white rounded-3xl p-4 shadow-sm border border-gray-100/50 flex flex-col overflow-hidden">
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3 shrink-0">
               {categories.map(cat => (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategoryId(cat.id)}
-                  className={`px-8 py-3 whitespace-nowrap rounded-2xl text-xs font-black transition-all border ${selectedCategoryId === cat.id ? 'bg-primary border-primary text-white shadow-xl shadow-primary/20' : 'bg-white border-gray-100 text-gray-400 hover:border-primary/20 hover:text-primary/60'}`}
+                  className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all border ${selectedCategoryId === cat.id ? 'bg-primary border-primary text-white shadow-lg shadow-primary/10' : 'bg-white border-gray-100 text-gray-400 hover:text-primary'}`}
                 >
                   {cat.name}
                 </button>
               ))}
             </div>
 
-            <div className="flex-1 overflow-y-auto no-scrollbar grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 p-1">
+            <div className="flex-1 overflow-y-auto no-scrollbar grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 p-1">
               {products.length > 0 ? products.map(item => (
                 <button
                   key={item.id}
                   onClick={() => addToCart(item)}
-                  className="bg-gray-50/50 p-3 rounded-3xl border-2 border-transparent hover:border-primary hover:bg-white hover:shadow-xl transition-all flex flex-col items-center text-center group h-fit"
+                  className="bg-gray-50/20 p-2.5 rounded-2xl border-2 border-transparent hover:border-primary hover:bg-white hover:shadow-xl transition-all flex flex-col items-center group h-fit"
                 >
-                  <div className="relative w-full aspect-square rounded-2xl overflow-hidden mb-3 border border-white shadow-sm">
-                    <Image src={getImageUrl(item.image_url)} alt={item.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                  <div className="relative w-full aspect-square rounded-xl overflow-hidden mb-2 border border-white shadow-sm">
+                    <Image src={getImageUrl(item.image_url)} alt={item.name} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
                   </div>
-                  <h4 className="text-[13px] font-black text-gray-800 line-clamp-1 h-5 tracking-tight uppercase italic">{item.name}</h4>
-                  <p className="text-primary font-black mt-2 text-sm">{item.price.toLocaleString()} đ</p>
+                  <h4 className="text-[11px] font-black text-gray-800 line-clamp-1 h-4 uppercase italic tracking-tighter">{item.name}</h4>
+                  <p className="text-primary font-black mt-1 text-[11px]">{item.price.toLocaleString()}đ</p>
                 </button>
               )) : (
-                <div className="col-span-full h-full flex items-center justify-center opacity-30 italic font-bold text-gray-400">
-                  Chưa có món nào trong danh mục này...
-                </div>
+                <div className="col-span-full h-full flex items-center justify-center opacity-30 text-[10px] font-black italic uppercase">Chưa có món...</div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Right Section: Order Details */}
-        <div className="w-[400px] bg-white rounded-[2rem] shadow-2xl border border-gray-100/50 flex flex-col overflow-hidden">
-          <div className="p-6 bg-gray-900 text-white shrink-0 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-            <div className="flex justify-between items-start relative z-10">
+        {/* Right Section: Order Receipt */}
+        <div className="w-[360px] bg-white rounded-3xl shadow-2xl border border-gray-100/50 flex flex-col overflow-hidden shrink-0">
+          <div className="p-4 bg-gray-900 text-white shrink-0 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+            <div className="flex justify-between items-center relative z-10">
               <div>
-                <h2 className="text-xl font-black uppercase italic tracking-tighter text-primary">Biên nhận Order</h2>
-                <p className="text-[10px] font-bold text-white/40 mt-1 uppercase tracking-widest">{new Date().toLocaleDateString('vi-VN')} | {new Date().toLocaleTimeString()}</p>
+                <h2 className="text-base font-black uppercase italic tracking-tighter text-primary">Biên nhận</h2>
+                <p className="text-[8px] font-bold text-white/40 uppercase tracking-[2px]">{new Date().toLocaleTimeString()} - Bàn {selectedTable?.table_number || "..."}</p>
               </div>
-              <div className="bg-primary px-5 py-3 rounded-2xl border border-white/10 text-center min-w-[100px] shadow-lg shadow-primary/20 rotate-2">
-                <p className="text-[8px] font-black uppercase opacity-60">Bàn Phục vụ</p>
-                <p className="text-lg font-black leading-none mt-1">{selectedTable ? selectedTable.table_number : "..."}</p>
+              <div className="bg-primary/20 border border-white/10 px-3 py-1.5 rounded-xl">
+                <span className="text-[10px] font-black italic text-primary">#{activeOrderId || "NEW"}</span>
               </div>
             </div>
           </div>
 
-          {/* Customer Loyalty Search */}
-          <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-100">
+          {/* Promotion & Customer Section - Compact */}
+          <div className="px-4 py-3 bg-gray-50/50 border-b border-gray-100 shrink-0 space-y-2">
             <div className="flex gap-2">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  value={customerPhone}
-                  onChange={(e) => handleCustomerPhoneChange(e.target.value)}
-                  placeholder="SĐT Khách hàng (Tích điểm)..."
-                  className="w-full bg-white border border-gray-100 pl-10 pr-4 py-3 rounded-xl text-[11px] font-bold outline-none focus:border-primary transition-all"
-                />
-                {customerSearchLoading ? (
-                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-primary animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                ) : (
-                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-                )}
-              </div>
-              {customerPhone && (
-                <button
-                  onClick={() => { setCustomerPhone(''); setFoundCustomer(null); }}
-                  className="bg-white border border-gray-100 px-3 rounded-xl text-gray-400 font-black text-[10px] hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all"
-                >
-                  ✕
-                </button>
-              )}
+              <input
+                type="text"
+                value={customerPhone}
+                onChange={(e) => handleCustomerPhoneChange(e.target.value)}
+                placeholder="SĐT Khách hàng..."
+                className="flex-1 bg-white border border-gray-100 px-3 py-2 rounded-xl text-[10px] font-bold outline-none focus:border-primary transition-all"
+              />
             </div>
 
-            {/* Customer Info Card */}
             {foundCustomer && (
-              <div className="mt-3 bg-white border border-emerald-100 rounded-2xl p-3 flex items-center gap-3 animate-in slide-in-from-top-2 duration-300">
-                <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center text-white font-black text-sm shrink-0 shadow-lg shadow-emerald-200">
+              <div className="bg-white border border-emerald-100 rounded-xl p-2 flex items-center gap-2.5 animate-in slide-in-from-top-1 shadow-sm">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center text-white font-black text-[12px] shrink-0 shadow-lg shadow-emerald-100">
                   {foundCustomer.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-black text-gray-800 truncate">{foundCustomer.name}</p>
-                  <p className="text-[10px] font-bold text-gray-400 truncate">{foundCustomer.email || foundCustomer.phone}</p>
+                  <p className="text-[10px] font-black text-gray-800 truncate uppercase tracking-tighter italic">{foundCustomer.name}</p>
+                  <p className="text-[9px] font-bold text-gray-400 leading-none">{foundCustomer.phone}</p>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tích điểm</p>
-                  <p className="text-lg font-black text-emerald-500 leading-none">{foundCustomer.points.toLocaleString()}</p>
+                <div className="text-right shrink-0 pr-1">
+                  <p className="text-[8px] font-black text-gray-300 uppercase leading-none mb-0.5 tracking-widest">Điểm</p>
+                  <p className="text-[14px] font-black text-emerald-600 leading-none">{foundCustomer.points.toLocaleString()}</p>
                 </div>
               </div>
             )}
 
-            {customerPhone.length >= 8 && !customerSearchLoading && !foundCustomer && (
-              <p className="mt-2 text-[10px] font-bold text-gray-400 italic text-center">Không tìm thấy khách hàng với SĐT này</p>
+            {foundCustomer && activeOrderId && (
+              <div className="flex gap-2 animate-in slide-in-from-top-1">
+                <input
+                  type="number"
+                  value={pointsInput}
+                  onChange={(e) => setPointsInput(e.target.value)}
+                  disabled={pointsUsed > 0 || isApplyingPoints}
+                  placeholder="Số điểm sử dụng"
+                  className={`flex-1 bg-white border border-gray-100 px-3 py-2 rounded-xl text-[10px] font-black outline-none focus:border-emerald-500 transition-all ${pointsUsed > 0 ? "text-emerald-500 bg-emerald-50/30 border-emerald-100" : ""}`}
+                />
+                <button
+                  onClick={pointsUsed > 0 ? handleRemovePoints : handleApplyPoints}
+                  className={`px-3 py-2 rounded-xl font-black text-[9px] uppercase tracking-wider transition-all ${pointsUsed > 0 ? 'bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-100' : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-md shadow-emerald-100'}`}
+                >
+                  {pointsUsed > 0 ? 'Hủy' : 'Dùng'}
+                </button>
+              </div>
             )}
           </div>
 
-          {/* Cart List */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
+          {/* Cart List - Main Scroll Area */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar min-h-[150px] bg-[#f9f9f9]/20">
             {cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center">
-                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-200 mb-4 animate-in zoom-in duration-500">
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.56-7.43H6.18"></path></svg>
-                </div>
-                <p className="text-gray-300 font-extrabold text-xs uppercase tracking-[3px]">Bàn đang trống món</p>
-              </div>
+              <div className="h-full flex flex-col items-center justify-center opacity-30 italic font-black text-[9px] uppercase tracking-widest">Giờ hàng trống</div>
             ) : (
               cart.map(item => (
-                <div key={item.id} className="flex gap-4 items-center group animate-in slide-in-from-right duration-300">
-                  <div className="w-12 h-12 rounded-xl overflow-hidden border border-gray-100 shadow-sm shrink-0">
-                    <Image src={getImageUrl(item.image_url)} alt={item.name} width={48} height={48} className="object-cover h-full w-full" />
+                <div key={item.id} className="flex gap-3 items-center group animate-in slide-in-from-right duration-200">
+                  <div className="w-10 h-10 rounded-xl overflow-hidden border border-gray-100 shrink-0 shadow-sm bg-white">
+                    <Image src={getImageUrl(item.image_url)} alt={item.name} width={40} height={40} className="object-cover h-full w-full" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h5 className="text-[11px] font-black text-gray-800 truncate uppercase tracking-tight">{item.name}</h5>
-                    <p className="text-[11px] font-bold text-primary italic mt-0.5">{(item.price * item.quantity).toLocaleString()} d</p>
+                    <h5 className="text-[10px] font-black text-gray-800 truncate uppercase italic tracking-tighter">{item.name}</h5>
+                    <p className="text-[10px] font-bold text-primary mt-0.5">{(item.price * item.quantity).toLocaleString()}đ</p>
                   </div>
-                  <div className="flex items-center gap-3 bg-gray-50 rounded-xl px-2 py-1 border border-gray-100">
-                    <button onClick={() => updateQuantity(item.id, -1)} className="text-gray-400 hover:text-primary transition-colors p-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
-                    <span className="text-[11px] font-black w-4 text-center">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.id, 1)} className="text-gray-400 hover:text-primary transition-colors p-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                  <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-lg shadow-sm border border-gray-100">
+                    <button onClick={() => updateQuantity(item.id, -1)} className="text-gray-400 hover:text-primary p-0.5"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                    <span className="text-[11px] font-black w-3 text-center">{item.quantity}</span>
+                    <button onClick={() => updateQuantity(item.id, 1)} className="text-gray-400 hover:text-primary p-0.5"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
                   </div>
-                  <button onClick={() => removeFromCart(item.id)} className="p-2 text-gray-200 hover:text-rose-500 transition-colors">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  <button onClick={() => removeFromCart(item.id)} className="text-gray-200 hover:text-rose-500 transition-colors">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                   </button>
                 </div>
               ))
             )}
           </div>
 
-          {/* Voucher Input */}
-          <div className="px-6 pt-4 pb-2 border-t border-gray-50 bg-gray-50/30">
+          {/* Bottom Toolbar: Voucher & Totals */}
+          <div className="shrink-0 bg-gray-50 border-t border-gray-100 p-4 space-y-4 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
             <div className="flex gap-2">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  value={voucherCode}
-                  onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
-                  disabled={hasVoucher || isApplyingVoucher}
-                  placeholder={hasVoucher ? "Đã áp dụng Voucher" : "Mã Voucher..."}
-                  className={`w-full bg-white border border-gray-100 pl-10 pr-4 py-3 rounded-xl text-[11px] font-black outline-none focus:border-primary transition-all uppercase tracking-widest placeholder:normal-case font-mono ${hasVoucher ? 'text-emerald-500 border-emerald-100 bg-emerald-50/30 shadow-inner' : ''}`}
-                />
-                {isApplyingVoucher ? (
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2"><svg className="text-primary animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg></div>
-                ) : (
-                  <svg className={`absolute left-3 top-1/2 -translate-y-1/2 ${hasVoucher ? 'text-emerald-500' : 'text-gray-300'}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5l-1.761 1.761a2 2 0 0 0 0 2.828l.828.828a2 2 0 0 1 0 2.828l-1.828 1.828a2 2 0 0 1-2.828 0l-.828-.828a2 2 0 0 0-2.828 0L4 16"></path><path d="m13 22-3-3"></path><path d="m9 18-3-3"></path></svg>
-                )}
-              </div>
-
-              {hasVoucher ? (
-                <button
-                  onClick={handleRemoveVoucher}
-                  disabled={isApplyingVoucher}
-                  className="bg-rose-50 border border-rose-100 px-4 rounded-xl text-rose-500 font-black text-[10px] hover:bg-rose-500 hover:text-white transition-all uppercase tracking-widest shadow-sm"
-                >
-                  Hủy
-                </button>
-              ) : (
-                <button
-                  onClick={handleApplyVoucher}
-                  disabled={isApplyingVoucher || !voucherCode || !activeOrderId}
-                  className="bg-gray-900 border border-gray-800 px-4 rounded-xl text-white font-black text-[10px] hover:bg-primary hover:border-primary transition-all uppercase tracking-widest shadow-lg shadow-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Áp dụng
-                </button>
-              )}
+              <input
+                type="text"
+                value={voucherCode}
+                onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                disabled={hasVoucher || isApplyingVoucher}
+                placeholder={hasVoucher ? "Voucher đã gán" : "Mã Voucher..."}
+                className={`flex-1 bg-white border border-gray-100 px-3 py-2 rounded-xl text-[10px] font-bold outline-none uppercase italic transition-all ${hasVoucher ? 'text-emerald-500 border-emerald-100 bg-emerald-50/10' : ''}`}
+              />
+              <button
+                onClick={hasVoucher ? handleRemoveVoucher : handleApplyVoucher}
+                disabled={isApplyingVoucher || (!voucherCode && !hasVoucher) || (!activeOrderId && !hasVoucher)}
+                className={`px-4 py-2 rounded-xl font-black text-[9px] uppercase transition-all shadow-sm ${hasVoucher ? 'bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white' : 'bg-gray-900 text-white hover:bg-black'}`}
+              >
+                {hasVoucher ? 'Hủy' : 'Dùng'}
+              </button>
             </div>
-            {!activeOrderId && voucherCode && (
-              <p className="text-[9px] font-bold text-gray-400 mt-2 italic text-center">* Áp dụng sau khi in tạm tính (ACTIVE)</p>
-            )}
-          </div>
 
-          {/* Summary & Buttons */}
-          <div className="p-8 bg-gray-50 border-t border-gray-100 space-y-6">
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-gray-400 font-bold text-[10px] uppercase tracking-widest">
-                <span>Tổng cộng tạm tính</span>
-                <span className="text-gray-800 font-black">{subtotal.toLocaleString()} đ</span>
+            <div className="space-y-1 px-1">
+              <div className="flex justify-between text-[10px] font-black text-gray-400">
+                <span>Tạm tính</span>
+                <span>{subtotal.toLocaleString()}đ</span>
               </div>
-              {discountAmount > 0 && (
-                <div className="flex justify-between items-center text-emerald-500 font-bold text-[10px] uppercase tracking-widest mt-1">
-                  <span>Voucher giảm giá</span>
-                  <span className="font-black">- {discountAmount.toLocaleString()} đ</span>
+              {(discountAmount > 0 || pointsDiscount > 0) && (
+                <div className="flex justify-between text-[10px] font-black text-emerald-500 italic">
+                  <span>Ưu đãi áp dụng</span>
+                  <span>-{(discountAmount + pointsDiscount).toLocaleString()}đ</span>
                 </div>
               )}
-              <div className="h-px bg-dashed border-t border-dashed border-gray-200 my-2"></div>
-              <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[3px]">Thành tiền</p>
-                <p className="text-3xl font-black text-primary italic leading-none mt-2 tracking-tighter">
-                  {(subtotal - discountAmount).toLocaleString()} đ
-                </p>
+              <div className="h-px border-t border-dashed border-gray-200 my-1.5"></div>
+              <div className="flex justify-between items-end">
+                <span className="text-[10px] font-black text-gray-400 uppercase italic leading-none">Tổng hóa đơn</span>
+                <span className="text-2xl font-black text-rose-600 italic leading-none">
+                  {(subtotal - discountAmount - pointsDiscount).toLocaleString()}đ
+                </span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              {activeOrderId && (
-                <button
-                  type="button"
-                  onClick={() => setIsCancelDialogOpen(true)}
-                  disabled={isCancelling}
-                  className="col-span-2 h-10 mb-2 rounded-xl bg-rose-50 border border-rose-100 text-rose-500 font-bold text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all shadow-sm flex items-center justify-center gap-2"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                  Hủy đơn hiện tại
-                </button>
-              )}
+            <div className="grid grid-cols-2 gap-2 pt-1">
               <button
                 onClick={handlePrintOrder}
                 disabled={isOrdering || cart.length === 0 || !selectedTable}
-                className="h-14 rounded-2xl bg-white border border-gray-100 font-black text-gray-400 text-[10px] tracking-widest hover:border-primary hover:text-primary transition-all uppercase shadow-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="h-11 rounded-xl bg-white border-2 border-primary/20 text-primary font-black text-[10px] uppercase tracking-tighter hover:bg-primary/5 transition-all shadow-sm flex items-center justify-center"
               >
-                {isOrdering && (
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                )}
                 In Tạm Tính
               </button>
               <button
                 onClick={() => setIsPayDialogOpen(true)}
                 disabled={isPaying || !activeOrderId}
-                className="h-14 rounded-2xl bg-primary text-white font-black text-xs tracking-[2px] shadow-xl shadow-primary/20 hover:bg-rose-700 transition-all uppercase active:scale-95 disabled:opacity-40 disabled:grayscale flex items-center justify-center gap-2"
+                className="h-11 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-rose-700 transition-all flex items-center justify-center"
               >
-                {isPaying && (
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                )}
                 Thanh Toán
               </button>
+              {activeOrderId && (
+                <button
+                  type="button"
+                  onClick={() => setIsCancelDialogOpen(true)}
+                  disabled={isCancelling}
+                  className="col-span-2 h-8 rounded-lg bg-rose-50 text-rose-500 font-bold text-[9px] uppercase tracking-wider border border-rose-100 hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                >
+                  Giải phóng bàn / Hủy đơn
+                </button>
+              )}
             </div>
           </div>
         </div>
       </main>
 
+      {/* Dialogs */}
       <ConfirmDialog
         isOpen={isLogoutDialogOpen}
         onClose={() => setIsLogoutDialogOpen(false)}
@@ -713,7 +739,7 @@ export default function StaffPOS() {
         onClose={() => setIsCancelDialogOpen(false)}
         onConfirm={handleCancelOrder}
         title="Xác nhận Hủy Đơn"
-        message="Hệ thống sẽ hủy toàn bộ xón ăn, hoàn lại voucher và mở lại bàn này. Hành động này không thể hoàn tác!"
+        message="Hệ thống sẽ hủy toàn bộ món ăn, hoàn lại voucher và mở lại bàn này. Hành động này không thể hoàn tác!"
       />
 
       <ConfirmDialog

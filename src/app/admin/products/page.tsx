@@ -8,6 +8,8 @@ import categoryService from "@/services/category.service";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import api from "@/lib/axios";
 import { getImageUrl } from "@/lib/utils";
+import { FileSpreadsheet } from "lucide-react";
+import { exportToExcel } from "@/lib/export.utils";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -41,6 +43,19 @@ export default function ProductsPage() {
       setLoading(false);
     }
   }, [filters]);
+
+  const handleExportExcel = () => {
+    const dataToExport = products.map(p => ({
+      ID: p.id,
+      'Tên món ăn': p.name,
+      'Danh mục': p.category?.name || 'N/A',
+      'Giá bán': p.price,
+      'Tồn kho': p.stock_quantity,
+      'Trạng thái': p.status === 1 ? 'Sẵn có' : 'Tạm ngưng',
+      'Mô tả': p.description || '',
+    }));
+    exportToExcel(dataToExport, `Danh-sach-mon-an-${new Date().getTime()}`, 'Products');
+  };
 
   useEffect(() => {
     fetchProducts();
@@ -220,13 +235,22 @@ export default function ProductsPage() {
             <p className="text-gray-400 font-medium text-sm mt-0.5">Quản lý toàn bộ Món ăn & Đồ uống Mỳ Cay SASIN.</p>
           </div>
         </div>
-        <button
-          onClick={handleAdd}
-          className="bg-primary hover:bg-rose-600 text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 flex items-center justify-center gap-2 group"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="group-hover:rotate-90 transition-transform duration-300"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          Thêm Món mới
-        </button>
+        <div className="flex gap-4">
+          <button
+            onClick={handleExportExcel}
+            className="bg-emerald-100 hover:bg-emerald-200 text-emerald-600 px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-emerald-100/50 active:scale-95 flex items-center justify-center gap-2"
+          >
+            <FileSpreadsheet size={20} />
+            Xuất Excel
+          </button>
+          <button
+            onClick={handleAdd}
+            className="bg-primary hover:bg-rose-600 text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 flex items-center justify-center gap-2 group"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="group-hover:rotate-90 transition-transform duration-300"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Thêm Món mới
+          </button>
+        </div>
       </div>
 
       <ManagementTable

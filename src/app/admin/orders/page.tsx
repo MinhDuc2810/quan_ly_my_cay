@@ -14,9 +14,11 @@ import {
   RotateCcw,
   Bike,
   Ban,
-  MoreVertical
+  MoreVertical,
+  FileSpreadsheet,
 } from "lucide-react";
 import orderService, { Order } from "@/services/order.service";
+import { exportToExcel } from "@/lib/export.utils";
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -70,6 +72,22 @@ export default function AdminOrdersPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExportExcel = () => {
+    const dataToExport = orders.map(o => ({
+      ID: o.id,
+      'Mã đơn hàng': o.order_code,
+      'Bàn': o.table?.table_number || 'Mang về',
+      'Khách hàng': o.customer?.name || 'Khách vãng lai',
+      'Tổng tiền': o.total_amount,
+      'Giảm giá': o.discount_amount,
+      'Phải thu': o.final_amount,
+      'Trạng thái': o.status,
+      'Thanh toán': o.payment_status === 'PAID' ? 'Đã trả' : 'Chưa trả',
+      'Ngày tạo': new Date(o.created_at).toLocaleString('vi-VN'),
+    }));
+    exportToExcel(dataToExport, `Danh-sach-don-hang-${new Date().getTime()}`, 'Orders');
   };
 
   useEffect(() => {
@@ -153,6 +171,12 @@ export default function AdminOrdersPage() {
         </div>
         <div className="flex gap-4">
            {/* Thống kê nhanh hoặc các filter khác */}
+           <button
+             onClick={handleExportExcel}
+             className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-emerald-100 hover:bg-emerald-200 text-emerald-600 font-black text-[11px] uppercase tracking-wider transition-all active:scale-95 shadow-sm"
+           >
+             <FileSpreadsheet size={16} /> Xuất Excel
+           </button>
         </div>
       </div>
 

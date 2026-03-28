@@ -7,6 +7,7 @@ export interface Table {
   table_number: string;
   capacity: number;
   status: TableStatus;
+  is_deleted?: number;
   created_at: string;
   updated_at: string;
 }

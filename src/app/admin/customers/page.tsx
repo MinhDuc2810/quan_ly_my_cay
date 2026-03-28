@@ -5,6 +5,8 @@ import Image from "next/image";
 import ManagementTable from "@/components/admin/ManagementTable";
 import customerService, { CustomerListParams } from "@/services/customer.service";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { FileSpreadsheet } from "lucide-react";
+import { exportToExcel } from "@/lib/export.utils";
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -38,6 +40,18 @@ export default function CustomersPage() {
     }
   }, [filters]);
 
+  const handleExportExcel = () => {
+    const dataToExport = customers.map(c => ({
+      ID: c.id,
+      'Họ và tên': c.name,
+      'Số điện thoại': c.phone,
+      'Email': c.email || '',
+      'Điểm tích lũy': c.points,
+      'Ngày tham gia': new Date(c.created_at).toLocaleDateString('vi-VN'),
+    }));
+    exportToExcel(dataToExport, `Danh-sach-khach-hang-${new Date().getTime()}`, 'Customers');
+  };
+
   useEffect(() => {
     fetchCustomers();
   }, [fetchCustomers]);
@@ -53,7 +67,6 @@ export default function CustomersPage() {
           </div>
           <div>
             <p className="font-black text-gray-800 leading-none">{name}</p>
-            <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase tracking-widest">USER: {item.user?.username || "N/A"}</p>
           </div>
         </div>
       )
@@ -149,13 +162,22 @@ export default function CustomersPage() {
           <h2 className="text-2xl font-black text-gray-800 tracking-tight">Quản lý Khách hàng</h2>
           <p className="text-gray-400 font-medium text-sm mt-1">Thông tin thành viên và tích lũy điểm thưởng Mỳ Cay SASIN.</p>
         </div>
-        <button
-          onClick={handleAdd}
-          className="bg-primary hover:bg-rose-600 text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 flex items-center justify-center gap-2 group"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="group-hover:rotate-90 transition-transform duration-300"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          Thêm Khách hàng
-        </button>
+        <div className="flex gap-4">
+          <button
+            onClick={handleExportExcel}
+            className="bg-emerald-100 hover:bg-emerald-200 text-emerald-600 px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-emerald-100/50 active:scale-95 flex items-center justify-center gap-2"
+          >
+            <FileSpreadsheet size={20} />
+            Xuất Excel
+          </button>
+          <button
+            onClick={handleAdd}
+            className="bg-primary hover:bg-rose-600 text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 flex items-center justify-center gap-2 group"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="group-hover:rotate-90 transition-transform duration-300"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Thêm Khách hàng
+          </button>
+        </div>
       </div>
 
       <ManagementTable

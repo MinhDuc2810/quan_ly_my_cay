@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import ManagementTable from "@/components/admin/ManagementTable";
 import categoryService, { CategoryListParams } from "@/services/category.service";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { FileSpreadsheet } from "lucide-react";
+import { exportToExcel } from "@/lib/export.utils";
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -35,6 +37,16 @@ export default function CategoriesPage() {
     }
   }, [filters]);
 
+  const handleExportExcel = () => {
+    const dataToExport = categories.map(c => ({
+      ID: c.id,
+      'Tên danh mục': c.name,
+      'Trạng thái': c.status === 1 ? 'Hoạt động' : 'Ẩn',
+      'Ngày tạo': new Date(c.created_at).toLocaleDateString('vi-VN'),
+    }));
+    exportToExcel(dataToExport, `Danh-sach-danh-muc-${new Date().getTime()}`, 'Categories');
+  };
+
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
@@ -50,6 +62,21 @@ export default function CategoriesPage() {
           </div>
           <span className="font-black text-gray-800 leading-none">{name}</span>
         </div>
+      )
+    },
+    {
+      key: "status",
+      label: "Trạng thái",
+      render: (status: number) => (
+        <span
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-widest ${status === 1
+              ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
+              : "bg-gray-100 text-gray-400 border border-gray-200"
+            }`}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${status === 1 ? "bg-emerald-500" : "bg-gray-400"}`} />
+          {status === 1 ? "Hoạt động" : "Ẩn"}
+        </span>
       )
     },
     {
@@ -84,6 +111,20 @@ export default function CategoriesPage() {
       fetchCategories();
     } catch (err) {
       alert("Xóa thất bại!");
+    }
+  };
+
+  const handleRestore = async (id: number) => {
+    try {
+      const result = await categoryService.restoreCategory(id);
+      if (result && (result.success === true || result.success === "true")) {
+        setIsModalOpen(false);
+        fetchCategories();
+      } else {
+        alert(result?.message || "Khôi phục thất bại!");
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || err.message || "Lỗi kết nối Server!");
     }
   };
 
@@ -127,13 +168,22 @@ export default function CategoriesPage() {
           <h2 className="text-2xl font-black text-gray-800 tracking-tight">Quản lý Danh mục</h2>
           <p className="text-gray-400 font-medium text-sm mt-1">Quản lý nhóm món ăn: Mỳ cay, Đồ uống, Khai vị...</p>
         </div>
-        <button 
-          onClick={handleAdd}
-          className="bg-primary hover:bg-rose-600 text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 flex items-center justify-center gap-2 group"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="group-hover:rotate-90 transition-transform duration-300"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          Thêm Danh mục
-        </button>
+        <div className="flex gap-4">
+          <button
+            onClick={handleExportExcel}
+            className="bg-emerald-100 hover:bg-emerald-200 text-emerald-600 px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-emerald-100/50 active:scale-95 flex items-center justify-center gap-2"
+          >
+            <FileSpreadsheet size={20} />
+            Xuất Excel
+          </button>
+          <button
+            onClick={handleAdd}
+            className="bg-primary hover:bg-rose-600 text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 flex items-center justify-center gap-2 group"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="group-hover:rotate-90 transition-transform duration-300"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Thêm Danh mục
+          </button>
+        </div>
       </div>
 
       <ManagementTable
@@ -149,9 +199,9 @@ export default function CategoriesPage() {
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 bg-gray-50/50 p-6 rounded-3xl border border-gray-100/50">
           <div className="relative group">
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm danh mục nhanh..." 
+            <input
+              type="text"
+              placeholder="Tìm kiếm danh mục nhanh..."
               className="w-full bg-white border border-gray-200 pl-12 pr-6 py-4 rounded-2xl font-bold text-gray-700 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all shadow-sm"
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
@@ -169,7 +219,7 @@ export default function CategoriesPage() {
                 <h3 className="text-xl font-black text-white uppercase tracking-wider">{currentCategory ? "Cập nhật Danh mục" : "Danh mục Mới"}</h3>
                 <p className="text-white/70 text-[11px] font-bold uppercase tracking-widest mt-1">Thông tin chi tiết nhóm món</p>
               </div>
-              <button 
+              <button
                 onClick={() => setIsModalOpen(false)}
                 className="bg-white/20 hover:bg-white/30 text-white p-2.5 rounded-2xl transition-all active:scale-90"
               >
@@ -196,18 +246,28 @@ export default function CategoriesPage() {
               </div>
 
               <div className="pt-6 flex gap-4">
-                <button 
+                <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest text-gray-400 hover:bg-gray-100 transition-all active:scale-95"
+                  className="px-6 py-4 rounded-2xl font-black text-sm uppercase tracking-widest text-gray-400 hover:bg-gray-100 transition-all active:scale-95 border border-transparent"
                 >
                   Hủy bỏ
                 </button>
-                <button 
+                {currentCategory && (
+                  <button
+                    type="button"
+                    onClick={() => handleRestore(currentCategory.id)}
+                    className="px-6 py-4 rounded-2xl font-black text-sm uppercase tracking-widest text-emerald-500 hover:bg-emerald-50 border-2 border-emerald-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path></svg>
+                    Khôi phục
+                  </button>
+                )}
+                <button
                   type="submit"
-                  className="flex-2 bg-primary hover:bg-rose-600 text-white px-10 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-primary/20 active:scale-95"
+                  className="flex-1 bg-primary hover:bg-rose-600 text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-primary/20 active:scale-95"
                 >
-                  Xác nhận lưu
+                  Lưu thay đổi
                 </button>
               </div>
             </form>

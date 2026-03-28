@@ -5,6 +5,8 @@ import ManagementTable from "@/components/admin/ManagementTable";
 import Image from "next/image";
 import userService, { UserListParams } from "@/services/user.service";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { FileSpreadsheet } from "lucide-react";
+import { exportToExcel } from "@/lib/export.utils";
 
 export default function AccountsManagement() {
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -36,6 +38,17 @@ export default function AccountsManagement() {
       setLoading(false);
     }
   }, [filters]);
+
+  const handleExportExcel = () => {
+    const dataToExport = accounts.map(a => ({
+      ID: a.id,
+      'Tên đăng nhập': a.username,
+      'Vai trò': mapRole(a.role).label,
+      'Trạng thái': a.status === 1 ? 'Hoạt động' : 'Tạm khóa',
+      'Ngày tạo': new Date(a.created_at).toLocaleDateString('vi-VN'),
+    }));
+    exportToExcel(dataToExport, `Danh-sach-tai-khoan-${new Date().getTime()}`, 'Accounts');
+  };
 
   useEffect(() => {
     fetchAccounts();
@@ -165,6 +178,13 @@ export default function AccountsManagement() {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
         </div>
         <h2 className="text-2xl font-black text-gray-800 tracking-tight">Quản lý Tài khoản</h2>
+        <button
+          onClick={handleExportExcel}
+          className="ml-auto bg-emerald-100 hover:bg-emerald-200 text-emerald-600 px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-emerald-100/50 active:scale-95 flex items-center justify-center gap-2"
+        >
+          <FileSpreadsheet size={16} />
+          Xuất Excel
+        </button>
       </div>
 
       <ManagementTable

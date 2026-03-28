@@ -12,9 +12,11 @@ import {
   Ticket,
   CheckCircle2,
   XCircle,
-  X // added for modal close
+  X, // added for modal close
+  FileSpreadsheet
 } from "lucide-react";
 import voucherService, { Voucher } from "@/services/voucher.service";
+import { exportToExcel } from "@/lib/export.utils";
 
 export default function AdminVouchersPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -63,6 +65,23 @@ export default function AdminVouchersPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExportExcel = () => {
+    const dataToExport = vouchers.map(v => ({
+      ID: v.id,
+      'Mã Code': v.code,
+      'Loại giảm giá': v.discount_type === 'PERCENTAGE' ? 'Phần trăm' : 'Tiền mặt',
+      'Mức giảm': v.discount_value,
+      'Đơn tối thiểu': v.min_order_amount,
+      'Giảm tối đa': v.max_discount || 0,
+      'Giới hạn sử dụng': v.usage_limit || '∞',
+      'Đã dùng': v.used_count,
+      'Bắt đầu': new Date(v.start_date).toLocaleString('vi-VN'),
+      'Hết hạn': new Date(v.expired_at).toLocaleString('vi-VN'),
+      'Trạng thái': v.status === 1 ? 'Hoạt động' : 'Tạm khóa',
+    }));
+    exportToExcel(dataToExport, `Danh-sach-voucher-${new Date().getTime()}`, 'Vouchers');
   };
 
   useEffect(() => {
@@ -201,12 +220,20 @@ export default function AdminVouchersPage() {
           </h2>
           <p className="text-gray-400 font-bold uppercase tracking-[3px] text-[11px] mt-2 ml-1">Tạo và quản lý các chương trình ưu đãi mã giảm giá</p>
         </div>
-        <button 
-          onClick={handleOpenCreate}
-          className="bg-primary hover:bg-rose-700 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-primary/20 transition-all active:scale-95 flex items-center gap-3"
-        >
-          <Plus size={18} /> Tạo mã mới
-        </button>
+        <div className="flex gap-4">
+           <button
+             onClick={handleExportExcel}
+             className="bg-emerald-100 hover:bg-emerald-200 text-emerald-600 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-100/50 transition-all active:scale-95 flex items-center gap-3"
+           >
+             <FileSpreadsheet size={18} /> Xuất Excel
+           </button>
+           <button 
+             onClick={handleOpenCreate}
+             className="bg-primary hover:bg-rose-700 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-primary/20 transition-all active:scale-95 flex items-center gap-3"
+           >
+             <Plus size={18} /> Tạo mã mới
+           </button>
+        </div>
       </div>
 
       {/* Filter & Search Bar */}

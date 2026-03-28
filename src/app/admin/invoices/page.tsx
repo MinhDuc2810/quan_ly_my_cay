@@ -13,11 +13,13 @@ import {
   CreditCard,
   QrCode,
   FileText,
-  Download
+  Download,
+  FileSpreadsheet
 } from "lucide-react";
 import { PDFViewer, BlobProvider } from "@react-pdf/renderer";
 import InvoicePDF from "@/components/admin/InvoicePDF";
 import orderService, { Order } from "@/services/order.service";
+import { exportToExcel } from "@/lib/export.utils";
 
 export default function AdminInvoicesPage() {
   const [invoices, setInvoices] = useState<Order[]>([]);
@@ -65,6 +67,21 @@ export default function AdminInvoicesPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExportExcel = () => {
+    const dataToExport = invoices.map(inv => ({
+      ID: inv.id,
+      'Mã Đơn hàng': inv.order_code,
+      'Khách hàng': inv.customer?.name || 'Khách vãng lai',
+      'Bàn': inv.table?.table_number || 'N/A',
+      'Hình thức': inv.payment_method,
+      'Tổng tiền': inv.total_amount,
+      'Giảm giá': inv.discount_amount,
+      'Thực thu': inv.final_amount,
+      'Ngày lập': new Date(inv.created_at).toLocaleString('vi-VN'),
+    }));
+    exportToExcel(dataToExport, `Danh-sach-hoa-don-${new Date().getTime()}`, 'Invoices');
   };
 
   const handlePreviewInvoice = async (id: number) => {
@@ -137,8 +154,11 @@ export default function AdminInvoicesPage() {
         </div>
         <div className="flex gap-4">
            {/* Export button */}
-           <button className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-gray-800 hover:shadow-xl hover:-translate-y-1 transition-all">
-             <Download size={16} />
+           <button
+             onClick={handleExportExcel}
+             className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 hover:shadow-xl hover:-translate-y-1 transition-all"
+           >
+             <FileSpreadsheet size={16} />
              Xuất Excel
            </button>
         </div>

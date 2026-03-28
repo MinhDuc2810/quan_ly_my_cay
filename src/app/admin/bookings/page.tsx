@@ -12,20 +12,22 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  Trash2,
   CalendarCheck,
+  FileSpreadsheet,
 } from "lucide-react";
-import bookingService, { Booking } from "@/services/booking.service";
+import bookingService, { Reservation } from "@/services/booking.service";
+import { exportToExcel } from "@/lib/export.utils";
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   PENDING:   { label: "Chờ xác nhận", className: "bg-amber-50 text-amber-600 border-amber-100" },
   CONFIRMED: { label: "Đã xác nhận",  className: "bg-emerald-50 text-emerald-600 border-emerald-100" },
   CANCELLED: { label: "Đã hủy",       className: "bg-red-50 text-red-500 border-red-100" },
   COMPLETED: { label: "Hoàn thành",   className: "bg-blue-50 text-blue-600 border-blue-100" },
+  NO_SHOW:   { label: "Vắng mặt",    className: "bg-gray-50 text-gray-500 border-gray-100" },
 };
 
 export default function AdminBookingsPage() {
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [dateFilter, setDateFilter] = useState("");
@@ -33,11 +35,9 @@ export default function AdminBookingsPage() {
   const [pagination, setPagination] = useState({ current_page: 1, total_pages: 1, total: 0 });
 
   // Detail / confirm state
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<Reservation | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchBookings = useCallback(async (page = 1) => {
     setLoading(true);
@@ -45,34 +45,43 @@ export default function AdminBookingsPage() {
       const params: any = { page, per_page: 10 };
       if (statusFilter !== "ALL") params.status = statusFilter;
       if (dateFilter) params.date = dateFilter;
-      const res = await bookingService.getAllBookings(params);
+      
+      const res = await bookingService.getAllReservations(params);
       if (res.success) {
-        let data: Booking[] = res.data;
+        let data: Reservation[] = res.data;
         if (searchQuery) {
           const q = searchQuery.toLowerCase();
-          data = data.filter((b: Booking) =>
-            b.customer?.name?.toLowerCase().includes(q) ||
-            b.customer?.phone?.toLowerCase().includes(q)
+          data = data.filter((b: Reservation) =>
+            b.customer_name?.toLowerCase().includes(q) ||
+            b.customer_phone?.toLowerCase().includes(q)
           );
         }
         setBookings(data);
         if (res.pagination) setPagination(res.pagination);
       }
     } catch (err) {
-      console.error("Fetch bookings failed", err);
+      console.error("Fetch reservations failed", err);
     } finally {
       setLoading(false);
     }
   }, [statusFilter, dateFilter, searchQuery]);
 
   useEffect(() => {
-    fetchBookings(1);
-  }, [fetchBookings]);
+    fetchBookings(pagination.current_page);
+  }, [statusFilter, dateFilter, pagination.current_page]);
 
-  const handleStatusUpdate = async (booking: Booking, newStatus: string) => {
+  const handleStatusUpdate = async (booking: Reservation, newStatus: string) => {
     setIsUpdating(true);
     try {
-      await bookingService.updateBookingStatus(booking.id, newStatus);
+      if (newStatus === "CONFIRMED") {
+        await bookingService.confirmReservation(booking.id);
+      } else if (newStatus === "CANCELLED") {
+        await bookingService.cancelReservation(booking.id);
+      } else if (newStatus === "NO_SHOW") {
+        await bookingService.noShowReservation(booking.id);
+      } else {
+        await bookingService.updateReservationStatus(booking.id, newStatus);
+      }
       setSelectedBooking(prev => prev ? { ...prev, status: newStatus as any } : null);
       await fetchBookings(pagination.current_page);
     } catch (err) {
@@ -82,17 +91,17 @@ export default function AdminBookingsPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    setIsDeleting(true);
-    try {
-      await bookingService.deleteBooking(id);
-      setDeleteId(null);
-      await fetchBookings(pagination.current_page);
-    } catch (err) {
-      console.error("Delete booking failed", err);
-    } finally {
-      setIsDeleting(false);
-    }
+  const handleExportExcel = () => {
+    const dataToExport = bookings.map(b => ({
+      ID: b.id,
+      'Tên khách hàng': b.customer_name,
+      'Số điện thoại': b.customer_phone,
+      'Thời gian': b.reservation_time,
+      'Số khách': b.guest_count,
+      'Ghi chú': b.customer_note || '',
+      'Trạng thái': STATUS_LABELS[b.status]?.label || b.status,
+    }));
+    exportToExcel(dataToExport, `Danh-sach-dat-ban-${new Date().getTime()}`, 'Bookings');
   };
 
   const statusCounts = {
@@ -101,6 +110,7 @@ export default function AdminBookingsPage() {
     CONFIRMED: bookings.filter(b => b.status === "CONFIRMED").length,
     CANCELLED: bookings.filter(b => b.status === "CANCELLED").length,
     COMPLETED: bookings.filter(b => b.status === "COMPLETED").length,
+    NO_SHOW: bookings.filter(b => b.status === "NO_SHOW").length,
   };
 
   return (
@@ -126,13 +136,19 @@ export default function AdminBookingsPage() {
         >
           <RefreshCw size={14} /> Làm mới
         </button>
+        <button
+          onClick={handleExportExcel}
+          className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-emerald-100 hover:bg-emerald-200 text-emerald-600 font-black text-xs uppercase tracking-wider transition-all active:scale-95"
+        >
+          <FileSpreadsheet size={14} /> Xuất Excel
+        </button>
       </div>
 
       {/* Filter Bar */}
       <div className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-gray-100 space-y-5">
         {/* Status Tabs */}
         <div className="flex flex-wrap gap-2">
-          {(["ALL", "PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"] as const).map(s => (
+          {(["ALL", "PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW", "CANCELLED"] as const).map(s => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
@@ -203,74 +219,68 @@ export default function AdminBookingsPage() {
                   <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Khách hàng</th>
                   <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Ngày & Giờ</th>
                   <th className="px-8 py-5 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">Khách</th>
-                  <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Bàn</th>
+                  <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Ghi chú</th>
                   <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Trạng thái</th>
                   <th className="px-8 py-5 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {bookings.map((booking) => (
-                  <tr key={booking.id} className="hover:bg-gray-50/50 transition-colors group">
-                    <td className="px-8 py-5">
-                      <span className="text-xs font-black text-gray-400 italic">#{booking.id}</span>
-                    </td>
-                    <td className="px-8 py-5">
-                      <p className="font-black text-gray-800 tracking-tight">
-                        {booking.customer?.name || `KH #${booking.customer_id}`}
-                      </p>
-                      <p className="text-xs font-bold text-gray-400 mt-0.5">
-                        {booking.customer?.phone || ""}
-                      </p>
-                    </td>
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-2">
-                        <CalendarDays size={14} className="text-primary shrink-0" />
-                        <div>
-                          <p className="font-bold text-gray-800 text-sm">
-                            {new Date(booking.booking_date).toLocaleDateString("vi-VN")}
-                          </p>
-                          <p className="text-xs text-gray-400 font-bold flex items-center gap-1 mt-0.5">
-                            <Clock size={11} /> {booking.booking_time}
-                          </p>
+                {bookings.map((booking) => {
+                  const [date, time] = booking.reservation_time.split(' ');
+                  return (
+                    <tr key={booking.id} className="hover:bg-gray-50/50 transition-colors group">
+                      <td className="px-8 py-5">
+                        <span className="text-xs font-black text-gray-400 italic">#{booking.id}</span>
+                      </td>
+                      <td className="px-8 py-5">
+                        <p className="font-black text-gray-800 tracking-tight">
+                          {booking.customer_name}
+                        </p>
+                        <p className="text-xs font-bold text-gray-400 mt-0.5">
+                          {booking.customer_phone}
+                        </p>
+                      </td>
+                      <td className="px-8 py-5">
+                        <div className="flex items-center gap-2">
+                          <CalendarDays size={14} className="text-primary shrink-0" />
+                          <div>
+                            <p className="font-bold text-gray-800 text-sm">
+                              {date ? new Date(date).toLocaleDateString("vi-VN") : '---'}
+                            </p>
+                            <p className="text-xs text-gray-400 font-bold flex items-center gap-1 mt-0.5">
+                              <Clock size={11} /> {time ? time.substring(0, 5) : '---'}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-8 py-5 text-center">
-                      <div className="inline-flex items-center gap-1 font-black text-gray-700">
-                        <Users size={14} className="text-gray-400" />
-                        {booking.number_of_guests}
-                      </div>
-                    </td>
-                    <td className="px-8 py-5">
-                      <span className="text-sm font-bold text-gray-600">
-                        {booking.table ? `Bàn ${booking.table.table_number}` : "Tự sắp xếp"}
-                      </span>
-                    </td>
-                    <td className="px-8 py-5">
-                      <span className={`inline-block px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${STATUS_LABELS[booking.status]?.className ?? ""}`}>
-                        {STATUS_LABELS[booking.status]?.label ?? booking.status}
-                      </span>
-                    </td>
-                    <td className="px-8 py-5">
-                      <div className="flex items-center justify-center gap-2">
+                      </td>
+                      <td className="px-8 py-5 text-center">
+                        <div className="inline-flex items-center gap-1 font-black text-gray-700">
+                          <Users size={14} className="text-gray-400" />
+                          {booking.guest_count}
+                        </div>
+                      </td>
+                      <td className="px-8 py-5">
+                        <p className="text-xs font-bold text-gray-400 max-w-[150px] truncate" title={booking.customer_note || ""}>
+                          {booking.customer_note || "---"}
+                        </p>
+                      </td>
+                      <td className="px-8 py-5">
+                        <span className={`inline-block px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${STATUS_LABELS[booking.status]?.className ?? ""}`}>
+                          {STATUS_LABELS[booking.status]?.label ?? booking.status}
+                        </span>
+                      </td>
+                      <td className="px-8 py-5">
                         <button
                           onClick={() => { setSelectedBooking(booking); setIsDetailOpen(true); }}
-                          className="w-9 h-9 rounded-xl bg-gray-50 hover:bg-primary hover:text-white text-gray-400 flex items-center justify-center transition-all"
+                          className="w-full h-9 rounded-xl bg-gray-50 hover:bg-primary hover:text-white text-gray-400 flex items-center justify-center transition-all"
                           title="Chi tiết"
                         >
-                          <Eye size={15} />
+                          <Eye size={15} className="mr-2" /> Xem chi tiết
                         </button>
-                        <button
-                          onClick={() => setDeleteId(booking.id)}
-                          className="w-9 h-9 rounded-xl bg-gray-50 hover:bg-red-50 hover:text-red-500 text-gray-300 flex items-center justify-center transition-all"
-                          title="Xóa"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -326,29 +336,29 @@ export default function AdminBookingsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 rounded-2xl p-5">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Khách hàng</p>
-                  <p className="font-black text-gray-800">{selectedBooking.customer?.name || `KH #${selectedBooking.customer_id}`}</p>
-                  <p className="text-xs text-gray-400 font-bold mt-0.5">{selectedBooking.customer?.phone}</p>
+                  <p className="font-black text-gray-800">{selectedBooking.customer_name}</p>
+                  <p className="text-xs text-gray-400 font-bold mt-0.5">{selectedBooking.customer_phone}</p>
                 </div>
                 <div className="bg-gray-50 rounded-2xl p-5">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Lịch hẹn</p>
-                  <p className="font-black text-gray-800">{new Date(selectedBooking.booking_date).toLocaleDateString("vi-VN")}</p>
-                  <p className="text-xs text-gray-400 font-bold mt-0.5">{selectedBooking.booking_time}</p>
+                  <p className="font-black text-gray-800">{selectedBooking.reservation_time.split(' ')[0]}</p>
+                  <p className="text-xs text-gray-400 font-bold mt-0.5">{selectedBooking.reservation_time.split(' ')[1]}</p>
                 </div>
                 <div className="bg-gray-50 rounded-2xl p-5">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Số khách</p>
-                  <p className="font-black text-gray-800 text-xl">{selectedBooking.number_of_guests} người</p>
+                  <p className="font-black text-gray-800 text-xl">{selectedBooking.guest_count} người</p>
                 </div>
                 <div className="bg-gray-50 rounded-2xl p-5">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Bàn</p>
-                  <p className="font-black text-gray-800">{selectedBooking.table ? `Bàn ${selectedBooking.table.table_number}` : "Tự sắp xếp"}</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">ID Khách hàng</p>
+                  <p className="font-black text-gray-800">#{selectedBooking.customer_id}</p>
                 </div>
               </div>
 
               {/* Note */}
-              {selectedBooking.note && (
+              {selectedBooking.customer_note && (
                 <div className="bg-amber-50 rounded-2xl p-5 border border-amber-100">
                   <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Ghi chú</p>
-                  <p className="text-sm font-bold text-amber-700">{selectedBooking.note}</p>
+                  <p className="text-sm font-bold text-amber-700">{selectedBooking.customer_note}</p>
                 </div>
               )}
 
@@ -365,13 +375,14 @@ export default function AdminBookingsPage() {
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Cập nhật trạng thái:</p>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { status: "CONFIRMED", label: "Xác nhận", icon: <CheckCircle2 size={14} />, color: "bg-emerald-500 hover:bg-emerald-600 text-white" },
-                    { status: "COMPLETED", label: "Hoàn thành", icon: <CalendarCheck size={14} />, color: "bg-blue-500 hover:bg-blue-600 text-white" },
-                    { status: "CANCELLED", label: "Hủy bỏ", icon: <XCircle size={14} />, color: "bg-red-500 hover:bg-red-600 text-white" },
+                    { status: "CONFIRMED", label: "Xác nhận", icon: <CheckCircle2 size={14} />, color: "bg-emerald-500 hover:bg-emerald-600 text-white", allowedStatuses: ["PENDING"] },
+                    { status: "COMPLETED", label: "Hoàn thành", icon: <CalendarCheck size={14} />, color: "bg-blue-500 hover:bg-blue-600 text-white", allowedStatuses: ["CONFIRMED"] },
+                    { status: "NO_SHOW", label: "Vắng mặt", icon: <XCircle size={14} />, color: "bg-gray-500 hover:bg-gray-600 text-white", allowedStatuses: ["CONFIRMED"] },
+                    { status: "CANCELLED", label: "Hủy bỏ", icon: <XCircle size={14} />, color: "bg-red-500 hover:bg-red-600 text-white", allowedStatuses: ["PENDING", "CONFIRMED"] },
                   ].map(btn => (
                     <button
                       key={btn.status}
-                      disabled={isUpdating || selectedBooking.status === btn.status}
+                      disabled={isUpdating || !btn.allowedStatuses.includes(selectedBooking.status)}
                       onClick={() => handleStatusUpdate(selectedBooking, btn.status)}
                       className={`flex items-center gap-2 px-5 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all active:scale-95 disabled:opacity-40 ${btn.color}`}
                     >
@@ -385,33 +396,6 @@ export default function AdminBookingsPage() {
         </div>
       )}
 
-      {/* DELETE CONFIRM DIALOG */}
-      {deleteId !== null && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-[2.5rem] p-10 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-300 text-center space-y-6">
-            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto text-red-500">
-              <Trash2 size={28} />
-            </div>
-            <h3 className="text-xl font-black text-gray-800 uppercase italic tracking-tighter">Xóa đặt bàn?</h3>
-            <p className="text-gray-400 font-bold text-sm">Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa lịch hẹn này không?</p>
-            <div className="flex gap-4">
-              <button
-                onClick={() => setDeleteId(null)}
-                className="flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest text-gray-400 bg-gray-50 hover:bg-gray-100 transition-all"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={() => handleDelete(deleteId)}
-                disabled={isDeleting}
-                className="flex-1 py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
-              >
-                {isDeleting ? "Đang xóa..." : "Xác nhận xóa"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import dashboardService, { ProductStats } from "@/services/dashboard.service";
 import { getImageUrl } from "@/lib/utils";
 import Image from "next/image";
+import { FileSpreadsheet } from "lucide-react";
+import { exportToExcel } from "@/lib/export.utils";
 
 export default function AdminStatisticsPage() {
   const [period, setPeriod] = useState("month");
@@ -26,6 +28,17 @@ export default function AdminStatisticsPage() {
     };
     fetchStats();
   }, [period]);
+
+  const handleExportExcel = () => {
+    if (!data) return;
+    const dataToExport = data.category_stats.map(cat => ({
+      'Danh mục': cat.category,
+      'Số lượng món': cat.product_count,
+      'Đã bán': Number(cat.total_sold),
+      'Doanh thu (VNĐ)': Number(cat.revenue),
+    }));
+    exportToExcel(dataToExport, `Thong-ke-danh-muc-${period}-${new Date().getTime()}`, 'CategoryStats');
+  };
 
   if (loading && !data) {
     return (
@@ -64,6 +77,14 @@ export default function AdminStatisticsPage() {
             </button>
           ))}
         </div>
+
+        <button
+          onClick={handleExportExcel}
+          className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 hover:shadow-xl hover:-translate-y-1 transition-all shadow-lg shadow-emerald-900/20"
+        >
+          <FileSpreadsheet size={16} />
+          Xuất báo cáo
+        </button>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">

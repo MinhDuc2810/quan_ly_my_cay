@@ -51,6 +51,11 @@ const categoryService = {
     const response = await api.delete(`/categories/${id}`);
     return response.data;
   },
+
+  restoreCategory: async (id: number) => {
+    const response = await api.post(`/categories/${id}/restore`);
+    return response.data;
+  },
 };
 
 export default categoryService;

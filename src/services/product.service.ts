@@ -23,6 +23,7 @@ export interface ProductListParams {
   per_page?: number;
   name?: string;
   category_id?: number | string;
+  status?: number | string;
 }
 
 export interface ProductResponse {
@@ -38,7 +39,9 @@ export interface ProductResponse {
 
 const productService = {
   getProducts: async (params?: ProductListParams): Promise<ProductResponse> => {
+    console.log("[getProducts] params:", params);
     const response = await api.get<ProductResponse>("/products", { params });
+    console.log("[getProducts] response.data:", response.data);
     return response.data;
   },
 
